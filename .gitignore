@@ -7,6 +7,8 @@ mockgen_tmp.go
 *.txt
 race.[0-9]*
 
+./idea
+
 fuzzing/*/*.zip
 fuzzing/*/coverprofile
 fuzzing/*/crashers
@@ -15,3 +17,5 @@ fuzzing/*/suppressions
 fuzzing/*/corpus/
 
 gomock_reflect_*/
+
+.idea/
