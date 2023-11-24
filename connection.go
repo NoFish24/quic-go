@@ -1375,6 +1375,7 @@ func (s *connection) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protoco
 }
 
 func (s *connection) handleHandshakeEvents() error {
+	//TODO:Maybe good place to handle Initial Data / Maybe use CryptoFrame Handler
 	for {
 		ev := s.cryptoStreamHandler.NextEvent()
 		var err error
