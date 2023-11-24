@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/qerr"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/internal/wire"
 )
 
 type cryptoStream interface {

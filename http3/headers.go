@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/net/http/httpguts"
 
-	"github.com/quic-go/qpack"
+	"github.com/nofish24/qpack"
 )
 
 type header struct {

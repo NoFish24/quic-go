@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	mockquic "github.com/quic-go/quic-go/internal/mocks/quic"
-	"github.com/quic-go/quic-go/internal/utils"
+	mockquic "github.com/nofish24/quic-go/internal/mocks/quic"
+	"github.com/nofish24/quic-go/internal/utils"
 
-	"github.com/quic-go/qpack"
+	"github.com/nofish24/qpack"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

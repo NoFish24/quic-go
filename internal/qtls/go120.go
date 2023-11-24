@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/protocol"
 
-	"github.com/quic-go/qtls-go1-20"
+	"github.com/nofish24/qtls-go1-20"
 )
 
 type (
@@ -97,13 +97,13 @@ func FromTLSEncryptionLevel(e qtls.QUICEncryptionLevel) protocol.EncryptionLevel
 	}
 }
 
-//go:linkname cipherSuitesTLS13 github.com/quic-go/qtls-go1-20.cipherSuitesTLS13
+//go:linkname cipherSuitesTLS13 github.com/nofish24/qtls-go1-20.cipherSuitesTLS13
 var cipherSuitesTLS13 []unsafe.Pointer
 
-//go:linkname defaultCipherSuitesTLS13 github.com/quic-go/qtls-go1-20.defaultCipherSuitesTLS13
+//go:linkname defaultCipherSuitesTLS13 github.com/nofish24/qtls-go1-20.defaultCipherSuitesTLS13
 var defaultCipherSuitesTLS13 []uint16
 
-//go:linkname defaultCipherSuitesTLS13NoAES github.com/quic-go/qtls-go1-20.defaultCipherSuitesTLS13NoAES
+//go:linkname defaultCipherSuitesTLS13NoAES github.com/nofish24/qtls-go1-20.defaultCipherSuitesTLS13NoAES
 var defaultCipherSuitesTLS13NoAES []uint16
 
 var cipherSuitesModified bool
