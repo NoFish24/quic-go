@@ -59,7 +59,14 @@ func newSendConn(c rawConn, remote net.Addr, info packetInfo, logger utils.Logge
 }
 
 func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
-	err := c.writePacket(p, c.remoteAddr, c.packetInfoOOB, gsoSize, ecn)
+	oob := c.packetInfoOOB
+	if gsoSize == 65535 {
+		//This packet wants to send ROSA data
+		//TODO: Implement ROSA data
+		oob = append(oob, []byte("Hi")...)
+		gsoSize = 0
+	}
+	err := c.writePacket(p, c.remoteAddr, oob, gsoSize, ecn)
 	if err != nil && isGSOError(err) {
 		// disable GSO for future calls
 		c.gotGSOError = true
@@ -72,7 +79,7 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 			if l > int(gsoSize) {
 				l = int(gsoSize)
 			}
-			if err := c.writePacket(p[:l], c.remoteAddr, c.packetInfoOOB, 0, ecn); err != nil {
+			if err := c.writePacket(p[:l], c.remoteAddr, oob, 0, ecn); err != nil {
 				return err
 			}
 			p = p[l:]
