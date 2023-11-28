@@ -2087,7 +2087,7 @@ func (s *connection) registerPackedShortHeaderPacket(p shortHeaderPacket, ecn pr
 }
 
 func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn protocol.ECN, now time.Time) error {
-	var gsosize uint16 = 0 //this is used to indicate a ROSA packet with max value ; should NEVER be set to anything but 0 when sending initial packets
+	var rosa bool = false
 	s.logCoalescedPacket(packet, ecn)
 	for _, p := range packet.longHdrPackets {
 		if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && p.IsAckEliciting() {
@@ -2106,8 +2106,8 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			}
 		}
 		if s.perspective == protocol.PerspectiveClient && p.EncryptionLevel() == protocol.EncryptionInitial {
-			//TODO: should be 65535 when sending Initial but does not work
-			gsosize = 65535
+			//TODO: look if this actually activates ROSA
+			rosa = true
 			if s.logger.Debug() {
 				s.logger.Debugf("-> Want ROSA Request")
 			}
@@ -2125,7 +2125,11 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 		s.sentPacketHandler.SentPacket(now, p.PacketNumber, largestAcked, p.StreamFrames, p.Frames, protocol.Encryption1RTT, ecn, p.Length, p.IsPathMTUProbePacket)
 	}
 	s.connIDManager.SentPacket()
-	s.sendQueue.Send(packet.buffer, gsosize, ecn)
+	if rosa {
+		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn)
+	}
+	s.sendQueue.Send(packet.buffer, 0, ecn)
+
 	return nil
 }
 

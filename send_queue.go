@@ -4,6 +4,7 @@ import "github.com/nofish24/quic-go/internal/protocol"
 
 type sender interface {
 	Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN)
+	SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN)
 	Run() error
 	WouldBlock() bool
 	Available() <-chan struct{}
@@ -14,6 +15,7 @@ type queueEntry struct {
 	buf     *packetBuffer
 	gsoSize uint16
 	ecn     protocol.ECN
+	rosa    bool
 }
 
 type sendQueue struct {
@@ -43,7 +45,22 @@ func newSendQueue(conn sendConn) sender {
 // Otherwise Send will panic.
 func (h *sendQueue) Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
 	select {
-	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn}:
+	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosa: false}:
+		// clear available channel if we've reached capacity
+		if len(h.queue) == sendQueueCapacity {
+			select {
+			case <-h.available:
+			default:
+			}
+		}
+	case <-h.runStopped:
+	default:
+		panic("sendQueue.Send would have blocked")
+	}
+}
+func (h *sendQueue) SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
+	select {
+	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosa: true}:
 		// clear available channel if we've reached capacity
 		if len(h.queue) == sendQueueCapacity {
 			select {
@@ -78,7 +95,7 @@ func (h *sendQueue) Run() error {
 			// make sure that all queued packets are actually sent out
 			shouldClose = true
 		case e := <-h.queue:
-			if err := h.conn.Write(e.buf.Data, e.gsoSize, e.ecn); err != nil {
+			if err := h.conn.WriteRosa(e.buf.Data, e.gsoSize, e.ecn, e.rosa); err != nil {
 				// This additional check enables:
 				// 1. Checking for "datagram too large" message from the kernel, as such,
 				// 2. Path MTU discovery,and

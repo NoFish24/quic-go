@@ -11,6 +11,7 @@ import (
 // A sendConn allows sending using a simple Write() on a non-connected packet conn.
 type sendConn interface {
 	Write(b []byte, gsoSize uint16, ecn protocol.ECN) error
+	WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosa bool) error
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
@@ -63,6 +64,56 @@ func newSendConn(c rawConn, remote net.Addr, info packetInfo, logger utils.Logge
 func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 	oob := c.packetInfoOOB
 	if gsoSize == 65535 {
+		//This packet wants to send ROSA data
+		//TODO: Implement ROSA data
+		clientIPField := &ROSAOptionTLVField{
+			FieldType: CLIENT_IP,
+			FieldData: []byte(c.localAddr.String()),
+		}
+		ingressIPField := &ROSAOptionTLVField{
+			FieldType: INGRESS_IP,
+			FieldData: []byte(c.localAddr.String()),
+		}
+		serviceIDField := &ROSAOptionTLVField{
+			FieldType: SERVICE_ID,
+			FieldData: []byte("Service.rosa"),
+		}
+		portField := &ROSAOptionTLVField{
+			FieldType: PORT,
+			FieldData: make([]byte, 2),
+		}
+		//TODO: Get correct port
+		binary.LittleEndian.PutUint16(portField.FieldData, uint16(c.localAddr.(*net.UDPAddr).Port))
+		_, data := SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
+		oob = CreateDestOptsOOB(oob, data, SERVICE_REQUEST)
+		gsoSize = 0
+	}
+	err := c.writePacket(p, c.remoteAddr, oob, gsoSize, ecn)
+	if err != nil && isGSOError(err) {
+		// disable GSO for future calls
+		c.gotGSOError = true
+		if c.logger.Debug() {
+			c.logger.Debugf("GSO failed when sending to %s", c.remoteAddr)
+		}
+		// send out the packets one by one
+		for len(p) > 0 {
+			l := len(p)
+			if l > int(gsoSize) {
+				l = int(gsoSize)
+			}
+			if err := c.writePacket(p[:l], c.remoteAddr, oob, 0, ecn); err != nil {
+				return err
+			}
+			p = p[l:]
+		}
+		return nil
+	}
+	return err
+}
+
+func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosa bool) error {
+	oob := c.packetInfoOOB
+	if rosa {
 		//This packet wants to send ROSA data
 		//TODO: Implement ROSA data
 		clientIPField := &ROSAOptionTLVField{
