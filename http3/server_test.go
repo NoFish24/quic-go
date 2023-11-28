@@ -20,7 +20,7 @@ import (
 	"github.com/nofish24/quic-go/internal/utils"
 	"github.com/nofish24/quic-go/quicvarint"
 
-	"github.com/nofish24/qpack"
+	"github.com/quic-go/qpack"
 	"go.uber.org/mock/gomock"
 
 	. "github.com/onsi/ginkgo/v2"

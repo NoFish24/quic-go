@@ -9,7 +9,7 @@ import (
 	mockquic "github.com/nofish24/quic-go/internal/mocks/quic"
 	"github.com/nofish24/quic-go/internal/utils"
 
-	"github.com/nofish24/qpack"
+	"github.com/quic-go/qpack"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

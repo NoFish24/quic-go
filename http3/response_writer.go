@@ -12,7 +12,7 @@ import (
 	"github.com/nofish24/quic-go"
 	"github.com/nofish24/quic-go/internal/utils"
 
-	"github.com/nofish24/qpack"
+	"github.com/quic-go/qpack"
 )
 
 // The maximum length of an encoded HTTP/3 frame header is 16:

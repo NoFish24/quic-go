@@ -5,7 +5,7 @@ package qtls
 import (
 	"github.com/nofish24/quic-go/internal/protocol"
 
-	"github.com/nofish24/qtls-go1-20"
+	"github.com/quic-go/qtls-go1-20"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

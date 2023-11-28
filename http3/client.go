@@ -18,7 +18,7 @@ import (
 	"github.com/nofish24/quic-go/internal/utils"
 	"github.com/nofish24/quic-go/quicvarint"
 
-	"github.com/nofish24/qpack"
+	"github.com/quic-go/qpack"
 )
 
 // MethodGet0RTT allows a GET request to be sent using 0-RTT.
