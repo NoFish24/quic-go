@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"reflect"
 	"sync"
@@ -2110,6 +2111,7 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			if s.logger.Debug() {
 				s.logger.Debugf("-> Want ROSA Request")
 			}
+			log.Printf("Should enable ROSA")
 		}
 	}
 	if p := packet.shortHdrPacket; p != nil {
