@@ -82,7 +82,7 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 			FieldData: make([]byte, 2),
 		}
 		//TODO: Get correct port
-		binary.LittleEndian.PutUint16(portField.FieldData, uint16(1337))
+		binary.LittleEndian.PutUint16(portField.FieldData, uint16(c.localAddr.(*net.UDPAddr).Port))
 		_, data := SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
 		oob = CreateDestOptsOOB(oob, data, SERVICE_REQUEST)
 		gsoSize = 0

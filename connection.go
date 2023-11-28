@@ -2103,7 +2103,8 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			}
 		}
 		if s.perspective == protocol.PerspectiveClient && p.EncryptionLevel() == protocol.EncryptionInitial {
-			gsosize = 65535
+			//TODO: should be 65535 when sending Initial but does not work
+			gsosize = 0
 		}
 	}
 	if p := packet.shortHdrPacket; p != nil {
