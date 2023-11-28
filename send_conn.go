@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"encoding/binary"
 	"net"
 
 	"github.com/nofish24/quic-go/internal/protocol"
@@ -13,6 +14,7 @@ type sendConn interface {
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+	SetRemoteAddr(newRemote net.Addr)
 
 	capabilities() connCapabilities
 }
@@ -63,7 +65,26 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 	if gsoSize == 65535 {
 		//This packet wants to send ROSA data
 		//TODO: Implement ROSA data
-		oob = append(oob, []byte("Hi")...)
+		clientIPField := &ROSAOptionTLVField{
+			FieldType: CLIENT_IP,
+			FieldData: []byte(c.localAddr.String()),
+		}
+		ingressIPField := &ROSAOptionTLVField{
+			FieldType: INGRESS_IP,
+			FieldData: []byte(c.localAddr.String()),
+		}
+		serviceIDField := &ROSAOptionTLVField{
+			FieldType: SERVICE_ID,
+			FieldData: []byte("Service.rosa"),
+		}
+		portField := &ROSAOptionTLVField{
+			FieldType: PORT,
+			FieldData: make([]byte, 2),
+		}
+		//TODO: Get correct port
+		binary.LittleEndian.PutUint16(portField.FieldData, uint16(1337))
+		_, data := SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
+		oob = CreateDestOptsOOB(oob, data, SERVICE_REQUEST)
 		gsoSize = 0
 	}
 	err := c.writePacket(p, c.remoteAddr, oob, gsoSize, ecn)
@@ -106,5 +127,27 @@ func (c *sconn) capabilities() connCapabilities {
 	return capabilities
 }
 
+func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
+
+	// Pad the destination options to a multiple of 8 bytes
+
+	if (len(dstoptdata)-6%8)-2 != 0 && len(dstoptdata) != 6 {
+		dstoptdata = append(dstoptdata, make([]byte, 8-((len(dstoptdata)-6)%8)-2)...)
+	}
+
+	// Create the destination options buffer and copy the padded data into it (does not work on unpadded data)
+
+	destOptBuf, _ := AppendDestOpt(dstoptdata, optType, byte(len(dstoptdata)))
+
+	oob, destOptsDataBuf, _ := AppendDestOpts(oob, len(destOptBuf))
+
+	copy(destOptsDataBuf, destOptBuf)
+
+	return oob
+
+}
+
 func (c *sconn) RemoteAddr() net.Addr { return c.remoteAddr }
 func (c *sconn) LocalAddr() net.Addr  { return c.localAddr }
+
+func (c *sconn) SetRemoteAddr(newRemote net.Addr) { c.remoteAddr = newRemote }

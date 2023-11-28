@@ -265,6 +265,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 // WritePacket writes a new packet.
 func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gsoSize uint16, ecn protocol.ECN) (int, error) {
 	oob := packetInfoOOB
+
 	if gsoSize > 0 {
 		if !c.capabilities().GSO {
 			panic("GSO disabled")
@@ -282,12 +283,6 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 				oob = appendIPv6ECNMsg(oob, ecn)
 			}
 		}
-	}
-
-	useDestOpts := true
-	//TODO: add correct condition for use of DestOpts
-	if useDestOpts {
-		oob = createDestOptsOOB(oob, []byte("Hello"))
 	}
 
 	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
@@ -361,24 +356,4 @@ func appendIPv6ECNMsg(b []byte, val protocol.ECN) []byte {
 	offset := startLen + unix.CmsgSpace(0)
 	b[offset] = val.ToHeaderBits()
 	return b
-}
-
-func createDestOptsOOB(oob []byte, dstoptdata []byte) []byte {
-
-	// Pad the destination options to a multiple of 8 bytes
-
-	if (len(dstoptdata)-6%8)-2 != 0 && len(dstoptdata) != 6 {
-		dstoptdata = append(dstoptdata, make([]byte, 8-((len(dstoptdata)-6)%8)-2)...)
-	}
-
-	// Create the destination options buffer and copy the padded data into it (does not work on unpadded data)
-
-	destOptBuf, _ := AppendDestOpt(dstoptdata, 0b00111011, byte(len(dstoptdata)))
-
-	oob, destOptsDataBuf, _ := AppendDestOpts(oob, len(destOptBuf))
-
-	copy(destOptsDataBuf, destOptBuf)
-
-	return oob
-
 }

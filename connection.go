@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -789,6 +790,22 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 	if wire.IsVersionNegotiationPacket(rp.data) {
 		s.handleVersionNegotiationPacket(rp)
 		return false
+	}
+
+	//handle ROSA OOB from received Packet
+	if rp.oob != nil {
+		var IP net.IP
+		var Port uint16
+		rosadata := DecodeROSAOptionTLVFields(rp.oob)
+		for _, rd := range rosadata {
+			if rd.FieldType == INSTANCE_IP {
+				IP = rd.FieldData
+			}
+			if rd.FieldType == PORT {
+				Port = binary.LittleEndian.Uint16(rd.FieldData)
+			}
+		}
+		s.conn.SetRemoteAddr(&net.UDPAddr{IP: IP, Port: int(Port)})
 	}
 
 	var counter uint8
