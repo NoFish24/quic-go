@@ -1,7 +1,5 @@
 package quic
 
-import "github.com/prometheus/common/log"
-
 // https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml
 // Using velues meant for experimentation
 const SERVICE_ANNOUNCEMENT uint8 = 0x1e
@@ -37,7 +35,6 @@ func serializeROSAOptionTLVField(tlvField *ROSAOptionTLVField) (uint8, []byte) {
 	var buf []byte
 	buf = append(buf, byte(tlvField.FieldType), byte(tlvField.FieldLength))
 	buf = append(buf, tlvField.FieldData...)
-	// log.Println(tlvField.FieldType, tlvField.FieldLength, tlvField.FieldData)
 	return tlvField.FieldLength + 2, buf
 }
 
@@ -55,7 +52,6 @@ func SerializeAllROSAOptionFields(tlvFields *[]ROSAOptionTLVField) (uint8, []byt
 
 // Decode one TLV field from option data and return a truncated remaining buffer
 func decodeAndTruncateOneField(buf []byte) (*ROSAOptionTLVField, []byte) {
-	log.Debugln("Decoding TLV Field")
 	tlvField := &ROSAOptionTLVField{}
 	tlvField.FieldType = uint8(buf[0])
 	tlvField.FieldLength = uint8(buf[1])
