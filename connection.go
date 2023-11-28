@@ -795,7 +795,7 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 	//handle ROSA OOB from received Packet
 	if rp.oob != nil {
 		var IP net.IP
-		var Port uint16
+		var Port uint16 = 0
 		rosadata := DecodeROSAOptionTLVFields(rp.oob)
 		for _, rd := range rosadata {
 			if rd.FieldType == INSTANCE_IP {
@@ -805,7 +805,9 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 				Port = binary.LittleEndian.Uint16(rd.FieldData)
 			}
 		}
-		s.conn.SetRemoteAddr(&net.UDPAddr{IP: IP, Port: int(Port)})
+		if IP != nil && Port != 0 {
+			s.conn.SetRemoteAddr(&net.UDPAddr{IP: IP, Port: int(Port)})
+		}
 	}
 
 	var counter uint8
@@ -2104,7 +2106,10 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 		}
 		if s.perspective == protocol.PerspectiveClient && p.EncryptionLevel() == protocol.EncryptionInitial {
 			//TODO: should be 65535 when sending Initial but does not work
-			gsosize = 0
+			gsosize = 65535
+			if s.logger.Debug() {
+				s.logger.Debugf("-> Want ROSA Request")
+			}
 		}
 	}
 	if p := packet.shortHdrPacket; p != nil {
