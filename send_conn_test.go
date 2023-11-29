@@ -24,7 +24,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 		localAddr := &net.UDPAddr{IP: net.IPv4(192, 168, 0, 1), Port: 1234}
 		rawConn := NewMockRawConn(mockCtrl)
 		rawConn.EXPECT().LocalAddr().Return(localAddr)
-		c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger)
+		c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger, "")
 		Expect(c.LocalAddr().String()).To(Equal("192.168.0.1:1234"))
 		Expect(c.RemoteAddr().String()).To(Equal("192.168.100.200:1337"))
 	})
@@ -33,7 +33,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 		localAddr := &net.UDPAddr{IP: net.IPv4(192, 168, 0, 1), Port: 1234}
 		rawConn := NewMockRawConn(mockCtrl)
 		rawConn.EXPECT().LocalAddr().Return(localAddr)
-		c := newSendConn(rawConn, remoteAddr, packetInfo{addr: netip.AddrFrom4([4]byte{127, 0, 0, 42})}, utils.DefaultLogger)
+		c := newSendConn(rawConn, remoteAddr, packetInfo{addr: netip.AddrFrom4([4]byte{127, 0, 0, 42})}, utils.DefaultLogger, "")
 		Expect(c.LocalAddr().String()).To(Equal("127.0.0.42:1234"))
 	})
 
@@ -45,7 +45,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 			rawConn.EXPECT().capabilities().AnyTimes()
 			pi := packetInfo{addr: netip.IPv6Loopback()}
 			Expect(pi.OOB()).ToNot(BeEmpty())
-			c := newSendConn(rawConn, remoteAddr, pi, utils.DefaultLogger)
+			c := newSendConn(rawConn, remoteAddr, pi, utils.DefaultLogger, "")
 			rawConn.EXPECT().WritePacket([]byte("foobar"), remoteAddr, pi.OOB(), uint16(0), protocol.ECT1)
 			Expect(c.Write([]byte("foobar"), 0, protocol.ECT1)).To(Succeed())
 		})
@@ -55,7 +55,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 		rawConn := NewMockRawConn(mockCtrl)
 		rawConn.EXPECT().LocalAddr()
 		rawConn.EXPECT().capabilities().AnyTimes()
-		c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger)
+		c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger, "")
 		rawConn.EXPECT().WritePacket([]byte("foobar"), remoteAddr, gomock.Any(), uint16(3), protocol.ECNCE)
 		Expect(c.Write([]byte("foobar"), 3, protocol.ECNCE)).To(Succeed())
 	})
@@ -65,7 +65,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 			rawConn := NewMockRawConn(mockCtrl)
 			rawConn.EXPECT().LocalAddr()
 			rawConn.EXPECT().capabilities().Return(connCapabilities{GSO: true}).AnyTimes()
-			c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger)
+			c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger, "")
 			Expect(c.capabilities().GSO).To(BeTrue())
 			gomock.InOrder(
 				rawConn.EXPECT().WritePacket([]byte("foobar"), remoteAddr, gomock.Any(), uint16(4), protocol.ECNCE).Return(0, errGSO),
@@ -82,7 +82,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 			rawConn := NewMockRawConn(mockCtrl)
 			rawConn.EXPECT().LocalAddr()
 			rawConn.EXPECT().capabilities().AnyTimes()
-			c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger)
+			c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger, "")
 			gomock.InOrder(
 				rawConn.EXPECT().WritePacket([]byte("foobar"), remoteAddr, gomock.Any(), gomock.Any(), protocol.ECNCE).Return(0, errNotPermitted),
 				rawConn.EXPECT().WritePacket([]byte("foobar"), remoteAddr, gomock.Any(), uint16(0), protocol.ECNCE).Return(6, nil),
@@ -94,7 +94,7 @@ var _ = Describe("Connection (for sending packets)", func() {
 			rawConn := NewMockRawConn(mockCtrl)
 			rawConn.EXPECT().LocalAddr()
 			rawConn.EXPECT().capabilities().AnyTimes()
-			c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger)
+			c := newSendConn(rawConn, remoteAddr, packetInfo{}, utils.DefaultLogger, "")
 			rawConn.EXPECT().WritePacket([]byte("foobar"), remoteAddr, gomock.Any(), gomock.Any(), protocol.ECNCE).Return(0, errNotPermitted).Times(2)
 			Expect(c.Write([]byte("foobar"), 0, protocol.ECNCE)).To(MatchError(errNotPermitted))
 		})

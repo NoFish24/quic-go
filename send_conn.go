@@ -34,11 +34,13 @@ type sconn struct {
 	// Used to catch the error sometimes returned by the first sendmsg call on Linux,
 	// see https://github.com/golang/go/issues/63322.
 	wroteFirstPacket bool
+
+	hostname string //used for ROSA services
 }
 
 var _ sendConn = &sconn{}
 
-func newSendConn(c rawConn, remote net.Addr, info packetInfo, logger utils.Logger) *sconn {
+func newSendConn(c rawConn, remote net.Addr, info packetInfo, logger utils.Logger, host string) *sconn {
 	localAddr := c.LocalAddr()
 	if info.addr.IsValid() {
 		if udpAddr, ok := localAddr.(*net.UDPAddr); ok {
@@ -58,36 +60,12 @@ func newSendConn(c rawConn, remote net.Addr, info packetInfo, logger utils.Logge
 		remoteAddr:    remote,
 		packetInfoOOB: oob,
 		logger:        logger,
+		hostname:      host,
 	}
 }
 
 func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 	oob := c.packetInfoOOB
-	if gsoSize == 65535 {
-		//This packet wants to send ROSA data
-		//TODO: Implement ROSA data
-		clientIPField := &ROSAOptionTLVField{
-			FieldType: CLIENT_IP,
-			FieldData: []byte(c.localAddr.String()),
-		}
-		ingressIPField := &ROSAOptionTLVField{
-			FieldType: INGRESS_IP,
-			FieldData: []byte(c.localAddr.String()),
-		}
-		serviceIDField := &ROSAOptionTLVField{
-			FieldType: SERVICE_ID,
-			FieldData: []byte("Service.rosa"),
-		}
-		portField := &ROSAOptionTLVField{
-			FieldType: PORT,
-			FieldData: make([]byte, 2),
-		}
-		//TODO: Get correct port
-		binary.LittleEndian.PutUint16(portField.FieldData, uint16(c.localAddr.(*net.UDPAddr).Port))
-		_, data := SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
-		oob = CreateDestOptsOOB(oob, data, SERVICE_REQUEST)
-		gsoSize = 0
-	}
 	err := c.writePacket(p, c.remoteAddr, oob, gsoSize, ecn)
 	if err != nil && isGSOError(err) {
 		// disable GSO for future calls
@@ -113,7 +91,7 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 
 func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosa bool) error {
 	oob := c.packetInfoOOB
-	if rosa {
+	if rosa && c.hostname != "" {
 		//This packet wants to send ROSA data
 		//TODO: Implement ROSA data
 		clientIPField := &ROSAOptionTLVField{
@@ -126,7 +104,7 @@ func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosa bool)
 		}
 		serviceIDField := &ROSAOptionTLVField{
 			FieldType: SERVICE_ID,
-			FieldData: []byte("Service.rosa"),
+			FieldData: []byte(c.hostname),
 		}
 		portField := &ROSAOptionTLVField{
 			FieldType: PORT,

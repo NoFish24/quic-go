@@ -192,7 +192,7 @@ func (t *Transport) dial(ctx context.Context, addr net.Addr, host string, tlsCon
 	}
 	tlsConf = tlsConf.Clone()
 	setTLSConfigServerName(tlsConf, addr, host)
-	return dial(ctx, newSendConn(t.conn, addr, packetInfo{}, utils.DefaultLogger), t.connIDGenerator, t.handlerMap, tlsConf, conf, onClose, use0RTT)
+	return dial(ctx, newSendConn(t.conn, addr, packetInfo{}, utils.DefaultLogger, host), t.connIDGenerator, t.handlerMap, tlsConf, conf, onClose, use0RTT)
 }
 
 func (t *Transport) init(allowZeroLengthConnIDs bool) error {

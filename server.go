@@ -643,7 +643,7 @@ func (s *baseServer) handleInitialImpl(p receivedPacket, hdr *wire.Header) error
 			tracer = config.Tracer(context.WithValue(context.Background(), ConnectionTracingKey, tracingID), protocol.PerspectiveServer, connID)
 		}
 		conn = s.newConn(
-			newSendConn(s.conn, p.remoteAddr, p.info, s.logger),
+			newSendConn(s.conn, p.remoteAddr, p.info, s.logger, ""),
 			s.connHandler,
 			origDestConnID,
 			retrySrcConnID,
