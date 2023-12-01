@@ -11,11 +11,12 @@ import (
 // A sendConn allows sending using a simple Write() on a non-connected packet conn.
 type sendConn interface {
 	Write(b []byte, gsoSize uint16, ecn protocol.ECN) error
-	WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosa bool) error
+	WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosadata []byte) error
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
 	SetRemoteAddr(newRemote net.Addr)
+	GetHostname() string
 
 	capabilities() connCapabilities
 }
@@ -36,6 +37,10 @@ type sconn struct {
 	wroteFirstPacket bool
 
 	hostname string //used for ROSA services
+
+	sendRosaResponse []byte
+
+	sendRosaRequest []byte
 }
 
 var _ sendConn = &sconn{}
@@ -89,9 +94,9 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 	return err
 }
 
-func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosa bool) error {
+func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosadata []byte) error {
 	oob := c.packetInfoOOB
-	if rosa && c.hostname != "" {
+	if rosadata != nil && c.hostname != "" {
 		//This packet wants to send ROSA data
 		//TODO: Implement ROSA data
 		clientIPField := &ROSAOptionTLVField{
@@ -180,3 +185,4 @@ func (c *sconn) RemoteAddr() net.Addr { return c.remoteAddr }
 func (c *sconn) LocalAddr() net.Addr  { return c.localAddr }
 
 func (c *sconn) SetRemoteAddr(newRemote net.Addr) { c.remoteAddr = newRemote }
+func (c *sconn) GetHostname() string              { return c.hostname }

@@ -214,6 +214,12 @@ type connection struct {
 	logID  string
 	tracer *logging.ConnectionTracer
 	logger utils.Logger
+
+	//ROSA variables
+
+	rosaRequestCooldown bool //Used to only sent one ROSA Request per EncryptionInitial ; resets on packet with EncryptionHandshake
+	rosaResponse        bool
+	rosaRequest         []byte //Used to append the Response in case of server
 }
 
 var (
@@ -795,7 +801,7 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 
 	//handle ROSA OOB from received Packet
 	if rp.oob != nil {
-		var IP net.IP
+		var IP net.IP = nil
 		var Port uint16 = 0
 		rosadata := DecodeROSAOptionTLVFields(rp.oob)
 		for _, rd := range rosadata {
@@ -805,10 +811,18 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 			if rd.FieldType == PORT {
 				Port = binary.LittleEndian.Uint16(rd.FieldData)
 			}
+			if rd.FieldType == CLIENT_IP {
+				s.rosaResponse = true
+			}
 		}
 		if IP != nil && Port != 0 {
 			s.conn.SetRemoteAddr(&net.UDPAddr{IP: IP, Port: int(Port)})
 		}
+		if IP == nil {
+			s.rosaRequest = rp.oob
+			s.rosaResponse = true
+		}
+
 	}
 
 	var counter uint8
@@ -2087,7 +2101,8 @@ func (s *connection) registerPackedShortHeaderPacket(p shortHeaderPacket, ecn pr
 }
 
 func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn protocol.ECN, now time.Time) error {
-	var rosa bool = false
+	var rosarequest bool = false
+	var rosadata []byte = nil
 	s.logCoalescedPacket(packet, ecn)
 	for _, p := range packet.longHdrPackets {
 		if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && p.IsAckEliciting() {
@@ -2104,10 +2119,13 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			if err := s.dropEncryptionLevel(protocol.EncryptionInitial); err != nil {
 				return err
 			}
+			s.rosaRequestCooldown = false
 		}
-		if s.perspective == protocol.PerspectiveClient && p.EncryptionLevel() == protocol.EncryptionInitial {
+
+		if s.perspective == protocol.PerspectiveClient && p.EncryptionLevel() == protocol.EncryptionInitial && !s.rosaRequestCooldown {
 			//TODO: look if this actually activates ROSA
-			rosa = true
+			rosarequest = true
+			s.rosaRequestCooldown = true
 			if s.logger.Debug() {
 				s.logger.Debugf("-> Want ROSA Request")
 			}
@@ -2125,8 +2143,37 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 		s.sentPacketHandler.SentPacket(now, p.PacketNumber, largestAcked, p.StreamFrames, p.Frames, protocol.Encryption1RTT, ecn, p.Length, p.IsPathMTUProbePacket)
 	}
 	s.connIDManager.SentPacket()
-	if rosa {
-		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn)
+	if rosarequest {
+		clientIPField := &ROSAOptionTLVField{
+			FieldType: CLIENT_IP,
+			FieldData: []byte(s.conn.LocalAddr().String()),
+		}
+		ingressIPField := &ROSAOptionTLVField{
+			FieldType: INGRESS_IP,
+			FieldData: []byte(s.conn.LocalAddr().String()),
+		}
+		serviceIDField := &ROSAOptionTLVField{
+			FieldType: SERVICE_ID,
+			FieldData: []byte(s.conn.GetHostname()),
+		}
+		portField := &ROSAOptionTLVField{
+			FieldType: PORT,
+			FieldData: make([]byte, 2),
+		}
+		//TODO: Get correct port
+		binary.LittleEndian.PutUint16(portField.FieldData, uint16(s.conn.LocalAddr().(*net.UDPAddr).Port))
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
+		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata)
+	}
+	if s.perspective == protocol.PerspectiveServer && s.rosaResponse {
+		instanceIPField := &ROSAOptionTLVField{
+			FieldType: INGRESS_IP,
+			FieldData: []byte(s.conn.LocalAddr().String()),
+		}
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*instanceIPField})
+		rosadata = append(s.rosaRequest, rosadata...)
+		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata)
+		s.rosaResponse = false
 	}
 	s.sendQueue.Send(packet.buffer, 0, ecn)
 

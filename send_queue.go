@@ -4,7 +4,7 @@ import "github.com/nofish24/quic-go/internal/protocol"
 
 type sender interface {
 	Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN)
-	SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN)
+	SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN, rosadata []byte)
 	Run() error
 	WouldBlock() bool
 	Available() <-chan struct{}
@@ -12,10 +12,10 @@ type sender interface {
 }
 
 type queueEntry struct {
-	buf     *packetBuffer
-	gsoSize uint16
-	ecn     protocol.ECN
-	rosa    bool
+	buf      *packetBuffer
+	gsoSize  uint16
+	ecn      protocol.ECN
+	rosadata []byte
 }
 
 type sendQueue struct {
@@ -45,7 +45,7 @@ func newSendQueue(conn sendConn) sender {
 // Otherwise Send will panic.
 func (h *sendQueue) Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
 	select {
-	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosa: false}:
+	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosadata: nil}:
 		// clear available channel if we've reached capacity
 		if len(h.queue) == sendQueueCapacity {
 			select {
@@ -58,9 +58,9 @@ func (h *sendQueue) Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
 		panic("sendQueue.Send would have blocked")
 	}
 }
-func (h *sendQueue) SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
+func (h *sendQueue) SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN, rosadata []byte) {
 	select {
-	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosa: true}:
+	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosadata: rosadata}:
 		// clear available channel if we've reached capacity
 		if len(h.queue) == sendQueueCapacity {
 			select {
@@ -95,7 +95,7 @@ func (h *sendQueue) Run() error {
 			// make sure that all queued packets are actually sent out
 			shouldClose = true
 		case e := <-h.queue:
-			if err := h.conn.WriteRosa(e.buf.Data, e.gsoSize, e.ecn, e.rosa); err != nil {
+			if err := h.conn.WriteRosa(e.buf.Data, e.gsoSize, e.ecn, e.rosadata); err != nil {
 				// This additional check enables:
 				// 1. Checking for "datagram too large" message from the kernel, as such,
 				// 2. Path MTU discovery,and
