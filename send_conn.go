@@ -1,7 +1,6 @@
 package quic
 
 import (
-	"encoding/binary"
 	"net"
 
 	"github.com/nofish24/quic-go/internal/protocol"
@@ -11,7 +10,7 @@ import (
 // A sendConn allows sending using a simple Write() on a non-connected packet conn.
 type sendConn interface {
 	Write(b []byte, gsoSize uint16, ecn protocol.ECN) error
-	WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosadata []byte) error
+	WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosaData []byte, rosaType uint8) error
 	Close() error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
@@ -94,33 +93,12 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 	return err
 }
 
-func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosadata []byte) error {
+func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosaData []byte, rosaType uint8) error {
 	oob := c.packetInfoOOB
-	if rosadata != nil && c.hostname != "" {
-		//This packet wants to send ROSA data
-		//TODO: Implement ROSA data
-		clientIPField := &ROSAOptionTLVField{
-			FieldType: CLIENT_IP,
-			FieldData: []byte(c.localAddr.String()),
-		}
-		ingressIPField := &ROSAOptionTLVField{
-			FieldType: INGRESS_IP,
-			FieldData: []byte(c.localAddr.String()),
-		}
-		serviceIDField := &ROSAOptionTLVField{
-			FieldType: SERVICE_ID,
-			FieldData: []byte(c.hostname),
-		}
-		portField := &ROSAOptionTLVField{
-			FieldType: PORT,
-			FieldData: make([]byte, 2),
-		}
-		//TODO: Get correct port
-		binary.LittleEndian.PutUint16(portField.FieldData, uint16(c.localAddr.(*net.UDPAddr).Port))
-		_, data := SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
-		oob = CreateDestOptsOOB(oob, data, SERVICE_REQUEST)
-		gsoSize = 0
-	}
+
+	//TODO: See if rosaData is REQUEST or RESPONSE
+	oob = CreateDestOptsOOB(oob, rosaData, rosaType) //Take ROSA data created in connection and append to OOB;
+
 	err := c.writePacket(p, c.remoteAddr, oob, gsoSize, ecn)
 	if err != nil && isGSOError(err) {
 		// disable GSO for future calls

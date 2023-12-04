@@ -4,7 +4,7 @@ import "github.com/nofish24/quic-go/internal/protocol"
 
 type sender interface {
 	Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN)
-	SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN, rosadata []byte)
+	SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN, rosaData []byte, rosaType uint8)
 	Run() error
 	WouldBlock() bool
 	Available() <-chan struct{}
@@ -15,7 +15,8 @@ type queueEntry struct {
 	buf      *packetBuffer
 	gsoSize  uint16
 	ecn      protocol.ECN
-	rosadata []byte
+	rosaData []byte
+	rosaType uint8
 }
 
 type sendQueue struct {
@@ -45,7 +46,7 @@ func newSendQueue(conn sendConn) sender {
 // Otherwise Send will panic.
 func (h *sendQueue) Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
 	select {
-	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosadata: nil}:
+	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosaData: nil, rosaType: SERVICE_REQUEST}: //default rosaType just to combat any unforseen errors
 		// clear available channel if we've reached capacity
 		if len(h.queue) == sendQueueCapacity {
 			select {
@@ -58,9 +59,9 @@ func (h *sendQueue) Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN) {
 		panic("sendQueue.Send would have blocked")
 	}
 }
-func (h *sendQueue) SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN, rosadata []byte) {
+func (h *sendQueue) SendWithRosa(p *packetBuffer, gsoSize uint16, ecn protocol.ECN, rosaData []byte, rosaType uint8) {
 	select {
-	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosadata: rosadata}:
+	case h.queue <- queueEntry{buf: p, gsoSize: gsoSize, ecn: ecn, rosaData: rosaData, rosaType: rosaType}:
 		// clear available channel if we've reached capacity
 		if len(h.queue) == sendQueueCapacity {
 			select {
@@ -95,7 +96,7 @@ func (h *sendQueue) Run() error {
 			// make sure that all queued packets are actually sent out
 			shouldClose = true
 		case e := <-h.queue:
-			if err := h.conn.WriteRosa(e.buf.Data, e.gsoSize, e.ecn, e.rosadata); err != nil {
+			if err := h.conn.WriteRosa(e.buf.Data, e.gsoSize, e.ecn, e.rosaData, e.rosaType); err != nil {
 				// This additional check enables:
 				// 1. Checking for "datagram too large" message from the kernel, as such,
 				// 2. Path MTU discovery,and

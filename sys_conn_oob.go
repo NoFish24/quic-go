@@ -252,8 +252,8 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 					})
 				}
 			case unix.IPV6_DSTOPTS:
-				//TODO: Work with Destopts
-				p.oob = body
+				//TODO: Work with option type
+				p.oob = body //Deliver to connection to process
 				log.Printf("Received IPv6 Destination Options in form %+x", body)
 			}
 		}

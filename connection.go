@@ -2101,8 +2101,8 @@ func (s *connection) registerPackedShortHeaderPacket(p shortHeaderPacket, ecn pr
 }
 
 func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn protocol.ECN, now time.Time) error {
-	var rosarequest bool = false
-	var rosadata []byte = nil
+	var rosarequest bool = false //Should we send a request?
+	var rosadata []byte = nil    //Container for the ROSA options
 	s.logCoalescedPacket(packet, ecn)
 	for _, p := range packet.longHdrPackets {
 		if s.firstAckElicitingPacketAfterIdleSentTime.IsZero() && p.IsAckEliciting() {
@@ -2119,13 +2119,13 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			if err := s.dropEncryptionLevel(protocol.EncryptionInitial); err != nil {
 				return err
 			}
-			s.rosaRequestCooldown = false
+			s.rosaRequestCooldown = false //Deactivate as Initial for this Handshake process round is over
 		}
 
 		if s.perspective == protocol.PerspectiveClient && p.EncryptionLevel() == protocol.EncryptionInitial && !s.rosaRequestCooldown {
 			//TODO: look if this actually activates ROSA
 			rosarequest = true
-			s.rosaRequestCooldown = true
+			s.rosaRequestCooldown = true //Only send once per initial encryption
 			if s.logger.Debug() {
 				s.logger.Debugf("-> Want ROSA Request")
 			}
@@ -2161,9 +2161,9 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			FieldData: make([]byte, 2),
 		}
 		//TODO: Get correct port
-		binary.LittleEndian.PutUint16(portField.FieldData, uint16(s.conn.LocalAddr().(*net.UDPAddr).Port))
+		binary.LittleEndian.PutUint16(portField.FieldData, uint16(s.conn.LocalAddr().(*net.UDPAddr).Port)) //I think? this structure is used in other areas to get the Port
 		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
-		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata)
+		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata, SERVICE_REQUEST)
 	}
 	if s.perspective == protocol.PerspectiveServer && s.rosaResponse {
 		instanceIPField := &ROSAOptionTLVField{
@@ -2171,8 +2171,8 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			FieldData: []byte(s.conn.LocalAddr().String()),
 		}
 		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*instanceIPField})
-		rosadata = append(s.rosaRequest, rosadata...)
-		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata)
+		rosadata = append(s.rosaRequest, rosadata...) //As the response just attaches the instance IP to a Service Request header this should be enough
+		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata, SERVICE_RESPONSE)
 		s.rosaResponse = false
 	}
 	s.sendQueue.Send(packet.buffer, 0, ecn)
