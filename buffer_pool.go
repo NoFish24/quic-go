@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"log"
 	"sync"
 
 	"github.com/nofish24/quic-go/internal/protocol"
@@ -25,7 +26,11 @@ func (b *packetBuffer) Split() {
 // Decrement decrements the reference counter.
 // It doesn't put the buffer back into the pool.
 func (b *packetBuffer) Decrement() {
-	b.refCount--
+	if b.refCount != 0 {
+		b.refCount--
+	} else {
+		log.Printf("This should not happen, but happens on ROSA attached packets.\n")
+	}
 	if b.refCount < 0 {
 		panic("negative packetBuffer refCount")
 	}
