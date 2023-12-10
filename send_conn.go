@@ -96,7 +96,6 @@ func (c *sconn) Write(p []byte, gsoSize uint16, ecn protocol.ECN) error {
 func (c *sconn) WriteRosa(p []byte, gsoSize uint16, ecn protocol.ECN, rosaData []byte, rosaType uint8) error {
 	oob := c.packetInfoOOB
 
-	//TODO: See if rosaData is REQUEST or RESPONSE
 	oob = CreateDestOptsOOB(oob, rosaData, rosaType) //Take ROSA data created in connection and append to OOB;
 
 	err := c.writePacket(p, c.remoteAddr, oob, gsoSize, ecn)

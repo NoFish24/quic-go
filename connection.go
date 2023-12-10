@@ -801,6 +801,7 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 
 	//handle ROSA OOB from received Packet
 	if rp.oob != nil {
+		log.Printf("Looking through ROSA information...\n")
 		var IP net.IP = nil
 		var Port uint16 = 0
 		rosadata := DecodeROSAOptionTLVFields(rp.oob)
@@ -816,11 +817,14 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 			}
 		}
 		if IP != nil && Port != 0 {
-			s.conn.SetRemoteAddr(&net.UDPAddr{IP: IP, Port: int(Port)})
+			addr := net.UDPAddr{IP: IP, Port: int(Port)}
+			s.conn.SetRemoteAddr(&addr)
+			log.Printf("Was Response, changing remote address to: %s\n", addr.String())
 		}
 		if IP == nil {
 			s.rosaRequest = rp.oob
 			s.rosaResponse = true
+			log.Printf("Was Request, formulate Response")
 		}
 
 	}
