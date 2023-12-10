@@ -30,6 +30,7 @@ func (b *packetBuffer) Decrement() {
 		b.refCount--
 	} else {
 		log.Printf("This should not happen, but happens on ROSA attached packets.\n")
+		b.refCount = 0
 	}
 	if b.refCount < 0 {
 		panic("negative packetBuffer refCount")
