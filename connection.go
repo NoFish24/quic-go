@@ -220,6 +220,8 @@ type connection struct {
 	rosaRequestCooldown bool //Used to only sent one ROSA Request per EncryptionInitial ; resets on packet with EncryptionHandshake
 	rosaResponse        bool
 	rosaRequest         []byte //Used to append the Response in case of server
+
+	ingressIP net.Addr //TODO: where should this be set?
 }
 
 var (
@@ -499,6 +501,8 @@ func (s *connection) preSetup() {
 	s.windowUpdateQueue = newWindowUpdateQueue(s.streamsMap, s.connFlowController, s.framer.QueueControlFrame)
 	s.datagramQueue = newDatagramQueue(s.scheduleSending, s.logger)
 	s.connState.Version = s.version
+
+	s.ingressIP, _ = net.ResolveUDPAddr("udp", "[::1]:4242")
 }
 
 // run the connection main loop
@@ -805,15 +809,20 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 		var IP net.IP = nil
 		var Port uint16 = 0
 		rosadata := DecodeROSAOptionTLVFields(rp.oob)
+
+		var responsefields []ROSAOptionTLVField
 		for _, rd := range rosadata {
-			if rd.FieldType == INSTANCE_IP {
+			switch rd.FieldType {
+			case INSTANCE_IP:
 				IP = rd.FieldData
-			}
-			if rd.FieldType == PORT {
+				responsefields = append(responsefields, *rd)
+			case PORT:
 				Port = binary.LittleEndian.Uint16(rd.FieldData)
-			}
-			if rd.FieldType == CLIENT_IP {
+			case CLIENT_IP:
 				s.rosaResponse = true
+				responsefields = append(responsefields, *rd)
+			default:
+				responsefields = append(responsefields, *rd)
 			}
 		}
 		if IP != nil && Port != 0 {
@@ -822,7 +831,8 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 			log.Printf("Was Response, changing remote address to: %s\n", addr.String())
 		}
 		if IP == nil {
-			s.rosaRequest = rp.oob
+			_, responsebyte := SerializeAllROSAOptionFields(&responsefields)
+			s.rosaRequest = bytes.Clone(responsebyte)
 			s.rosaResponse = true
 			log.Printf("Was Request, formulate Response")
 		}
@@ -2150,11 +2160,11 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 	if rosarequest {
 		clientIPField := &ROSAOptionTLVField{
 			FieldType: CLIENT_IP,
-			FieldData: []byte(s.conn.LocalAddr().String()),
+			FieldData: []byte(s.conn.LocalAddr().(*net.UDPAddr).IP),
 		}
 		ingressIPField := &ROSAOptionTLVField{
 			FieldType: INGRESS_IP,
-			FieldData: []byte(s.conn.LocalAddr().String()),
+			FieldData: []byte(s.conn.LocalAddr().(*net.UDPAddr).IP),
 		}
 		serviceIDField := &ROSAOptionTLVField{
 			FieldType: SERVICE_ID,
@@ -2164,7 +2174,6 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			FieldType: PORT,
 			FieldData: make([]byte, 2),
 		}
-		//TODO: Get correct port
 		binary.LittleEndian.PutUint16(portField.FieldData, uint16(s.conn.LocalAddr().(*net.UDPAddr).Port)) //I think? this structure is used in other areas to get the Port
 		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *ingressIPField, *serviceIDField, *portField})
 		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata, SERVICE_REQUEST)
@@ -2174,7 +2183,13 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 			FieldType: INGRESS_IP,
 			FieldData: []byte(s.conn.LocalAddr().String()),
 		}
-		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*instanceIPField})
+		portField := &ROSAOptionTLVField{
+			FieldType: PORT,
+			FieldData: make([]byte, 2),
+		}
+		binary.LittleEndian.PutUint16(portField.FieldData, uint16(s.conn.LocalAddr().(*net.UDPAddr).Port)) //I think? this structure is used in other areas to get the Port
+		log.Printf("rosadata: %+x\n", rosadata)
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*instanceIPField, *portField})
 		rosadata = append(s.rosaRequest, rosadata...) //As the response just attaches the instance IP to a Service Request header this should be enough
 		s.sendQueue.SendWithRosa(packet.buffer, 0, ecn, rosadata, SERVICE_RESPONSE)
 		s.rosaResponse = false
