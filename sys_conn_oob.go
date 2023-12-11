@@ -254,7 +254,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 				}
 			case unix.IPV6_DSTOPTS:
 				//TODO: Work with option type
-				p.oob = body[4:] //Deliver to connection to process
+				p.oob = bytes.Clone(body[4:]) //Deliver to connection to process
 				if len(p.oob)-bytes.Count(p.oob, []byte{0x0}) != 0 {
 					log.Printf("Received IPv6 Destination Options in form %+x\n", p.oob)
 				} else {

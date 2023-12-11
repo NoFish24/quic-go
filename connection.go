@@ -810,6 +810,8 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 		var Port uint16 = 0
 		rosadata := DecodeROSAOptionTLVFields(rp.oob)
 
+		log.Printf("Received %d ROSA fields.\n", len(rosadata))
+
 		var responsefields []ROSAOptionTLVField
 		for _, rd := range rosadata {
 			switch rd.FieldType {
@@ -834,7 +836,7 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 			_, responsebyte := SerializeAllROSAOptionFields(&responsefields)
 			s.rosaRequest = bytes.Clone(responsebyte)
 			s.rosaResponse = true
-			log.Printf("Was Request, formulate Response")
+			log.Printf("Was Request, formulate Response, length: %d, requestbytes: %+x\n", len(responsefields), responsebyte)
 		}
 
 	}
