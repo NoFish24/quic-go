@@ -89,6 +89,7 @@ type baseServer struct {
 		protocol.ConnectionID, /* client dest connection ID */
 		protocol.ConnectionID, /* destination connection ID */
 		protocol.ConnectionID, /* source connection ID */
+		string,
 		ConnectionIDGenerator,
 		protocol.StatelessResetToken,
 		*Config,
@@ -663,6 +664,7 @@ func (s *baseServer) handleInitialImpl(p receivedPacket, hdr *wire.Header) error
 			hdr.DestConnectionID,
 			hdr.SrcConnectionID,
 			connID,
+			"",
 			s.connIDGenerator,
 			s.connHandler.GetStatelessResetToken(connID),
 			config,

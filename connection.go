@@ -227,6 +227,7 @@ var newConnection = func(
 	clientDestConnID protocol.ConnectionID,
 	destConnID protocol.ConnectionID,
 	srcConnID protocol.ConnectionID,
+	siteRequest string,
 	connIDGenerator ConnectionIDGenerator,
 	statelessResetToken protocol.StatelessResetToken,
 	conf *Config,
@@ -327,6 +328,15 @@ var newConnection = func(
 		logger,
 		s.version,
 	)
+
+	//ROSA
+
+	rosaconn := CreateROSAConnServer(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, conn.RemoteAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), nil, siteRequest, 0)
+	err := AddConnection(rosaconn)
+	if err != nil {
+		panic(err)
+	}
+
 	s.cryptoStreamHandler = cs
 	s.packer = newPacketPacker(srcConnID, s.connIDManager.Get, s.initialStream, s.handshakeStream, s.sentPacketHandler, s.retransmissionQueue, cs, s.framer, s.receivedPacketHandler, s.datagramQueue, s.perspective)
 	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen)
@@ -340,6 +350,7 @@ var newClientConnection = func(
 	runner connRunner,
 	destConnID protocol.ConnectionID,
 	srcConnID protocol.ConnectionID,
+	siteRequest string,
 	connIDGenerator ConnectionIDGenerator,
 	conf *Config,
 	tlsConf *tls.Config,
@@ -432,6 +443,14 @@ var newClientConnection = func(
 		logger,
 		s.version,
 	)
+
+	//ROSA
+
+	rosaconn := CreateROSAConn(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, conn.RemoteAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), nil, siteRequest, 0)
+	err := AddConnection(rosaconn)
+	if err != nil {
+		panic(err)
+	}
 	s.cryptoStreamHandler = cs
 	s.cryptoStreamManager = newCryptoStreamManager(cs, s.initialStream, s.handshakeStream, oneRTTStream)
 	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen)

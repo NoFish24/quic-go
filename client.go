@@ -47,6 +47,9 @@ var generateConnectionIDForInitial = protocol.GenerateConnectionIDForInitial
 // When the QUIC connection is closed, this UDP connection is closed.
 // See Dial for more details.
 func DialAddr(ctx context.Context, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
+
+	ctx = context.WithValue(ctx, "RequestSite", addr)
+
 	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, err
@@ -195,6 +198,7 @@ func (c *client) dial(ctx context.Context) error {
 		c.packetHandlers,
 		c.destConnID,
 		c.srcConnID,
+		ctx.Value("RequestSite").(string),
 		c.connIDGenerator,
 		c.config,
 		c.tlsConf,

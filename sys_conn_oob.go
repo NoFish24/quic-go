@@ -5,6 +5,7 @@ package quic
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/netip"
@@ -87,10 +88,14 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 	if udpAddr, ok := c.LocalAddr().(*net.UDPAddr); ok && udpAddr.IP.IsUnspecified() {
 		needsPacketInfo = true
 	}
+
+	//Set if DestinationOptions is needed (IPv6-only)
+	needsDestOpts := true
+
 	// We don't know if this a IPv4-only, IPv6-only or a IPv4-and-IPv6 connection.
 	// Try enabling receiving of ECN and packet info for both IP versions.
 	// We expect at least one of those syscalls to succeed.
-	var errECNIPv4, errECNIPv6, errPIIPv4, errPIIPv6 error
+	var errECNIPv4, errECNIPv6, errPIIPv4, errPIIPv6, errDestOpts, errDestOptsRecv error
 	if err := rawConn.Control(func(fd uintptr) {
 		errECNIPv4 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_RECVTOS, 1)
 		errECNIPv6 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVTCLASS, 1)
@@ -99,6 +104,12 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 			errPIIPv4 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, ipv4PKTINFO, 1)
 			errPIIPv6 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVPKTINFO, 1)
 		}
+
+		if needsDestOpts {
+			errDestOpts = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_DSTOPTS, 1)
+			errDestOptsRecv = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVDSTOPTS, 1)
+		}
+
 	}); err != nil {
 		return nil, err
 	}
@@ -122,6 +133,19 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 			utils.DefaultLogger.Debugf("Activating reading of packet info bits for IPv6.")
 		case errPIIPv4 != nil && errPIIPv6 != nil:
 			return nil, errors.New("activating packet info failed for both IPv4 and IPv6")
+		}
+	}
+
+	if needsDestOpts {
+		switch {
+		case errDestOpts == nil && errDestOptsRecv == nil:
+			utils.DefaultLogger.Debugf("Activating writing and reading of destination info for IPv6.")
+		case errDestOpts == nil && errDestOptsRecv != nil:
+			utils.DefaultLogger.Debugf("Activating sending of destination info for IPv6.")
+		case errDestOpts != nil && errDestOptsRecv == nil:
+			utils.DefaultLogger.Debugf("Activating reading of destination info for IPv6.")
+		case errDestOpts != nil && errDestOptsRecv != nil:
+			return nil, errors.New("activation of sending and reading of destination info for IPv6 failed")
 		}
 	}
 
@@ -257,6 +281,20 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 			}
 		}
 	}
+
+	//ROSA
+
+	file, fileErr := os.Create("bytes.txt")
+	if fileErr != nil {
+		fmt.Println(fileErr)
+		return 0, fileErr
+	}
+	defer file.Close()
+	_, ferr := fmt.Fprintf(file, "%+X\n\n\n", b)
+	if ferr != nil {
+		return 0, ferr
+	}
+
 	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
 	return n, err
 }
