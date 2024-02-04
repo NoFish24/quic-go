@@ -355,6 +355,7 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 	var conn ROSAConn
 	var err error
 	var hdrType uint8
+	var rosadata []byte
 
 	//Obtain correct ROSA connection state
 	if b[1] != 0x00 { //Packet is NOT in Long Header Format
@@ -376,13 +377,113 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 	} else if !conn.requestSent && !conn.responseReceived { //First Packet, Client sends Request
 		hdrType = SERVICE_REQUEST
 	}
-	
+
 	fmt.Printf("%d %x", hdrType, conn.sourceIP)
 	//Create TLV Fields for ROSA Header
+	switch hdrType {
+	case SERVICE_REQUEST:
+		clientIPField := &ROSAOptionTLVField{
+			FieldType: SOURCEIP,
+			FieldData: []byte(conn.sourceIP),
+		}
+		clientPortField := &ROSAOptionTLVField{
+			FieldType: SOURCEPORT,
+			FieldData: make([]byte, 2),
+		}
+		ingressIPField := &ROSAOptionTLVField{
+			FieldType: INGRESSIP,
+			FieldData: []byte(conn.ingressIP),
+		}
+		sourceIDField := &ROSAOptionTLVField{
+			FieldType: SOURCEID,
+			FieldData: []byte(s.conn.GetHostname()),
+		}
+		requestField := &ROSAOptionTLVField{
+			FieldType: REQUEST,
+			FieldData: []byte(conn.siteRequest),
+		}
+		transmissionIDField := &ROSAOptionTLVField{
+			FieldType: CURID,
+			FieldData: make([]byte, 2),
+		}
+		binary.BigEndian.PutUint16(clientPortField.FieldData, uint16(conn.sourcePort))
+		binary.BigEndian.PutUint16(transmissionIDField.FieldData, uint16(conn.NextRetransmissionID()))
 
-	//Construct Header
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *clientPortField, *ingressIPField, *sourceIDField, *requestField, *transmissionIDField})
 
-	//Merge with other OOB
+	case SERVICE_RESPONSE:
+		clientIPField := &ROSAOptionTLVField{
+			FieldType: SOURCEIP,
+			FieldData: []byte(conn.sourceIP),
+		}
+		clientPortField := &ROSAOptionTLVField{
+			FieldType: SOURCEPORT,
+			FieldData: make([]byte, 2),
+		}
+		destIPField := &ROSAOptionTLVField{
+			FieldType: DESTIP,
+			FieldData: []byte(conn.sourceIP),
+		}
+		destPortField := &ROSAOptionTLVField{
+			FieldType: DESTPORT,
+			FieldData: make([]byte, 2),
+		}
+		ingressIPField := &ROSAOptionTLVField{
+			FieldType: INGRESSIP,
+			FieldData: []byte(conn.ingressIP),
+		}
+		egressIPField := &ROSAOptionTLVField{
+			FieldType: EGRESSIP,
+			FieldData: []byte(conn.egressIP),
+		}
+		sourceIDField := &ROSAOptionTLVField{
+			FieldType: SOURCEID,
+			FieldData: []byte(conn.sourceConnectionID),
+		}
+		destIDField := &ROSAOptionTLVField{
+			FieldType: DESTID,
+			FieldData: []byte(conn.sourceConnectionID),
+		}
+		transmissionIDField := &ROSAOptionTLVField{
+			FieldType: CURID,
+			FieldData: make([]byte, 2),
+		}
+		binary.BigEndian.PutUint16(clientPortField.FieldData, uint16(conn.sourcePort))
+		binary.BigEndian.PutUint16(destPortField.FieldData, uint16(conn.destPort))
+		binary.BigEndian.PutUint16(transmissionIDField.FieldData, uint16(conn.NextRetransmissionID()))
+
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *clientPortField, *destIPField, *destPortField * ingressIPField, *egressIPField, *sourceIDField, *destIDField, *transmissionIDField})
+
+	case SERVICE_AFFINITY:
+		sourceIDField := &ROSAOptionTLVField{
+			FieldType: SOURCEID,
+			FieldData: []byte(conn.sourceConnectionID),
+		}
+		destIDField := &ROSAOptionTLVField{
+			FieldType: DESTID,
+			FieldData: []byte(conn.destConnectionID),
+		}
+		destIPField := &ROSAOptionTLVField{
+			FieldType: DESTIP,
+			FieldData: []byte(conn.sourceIP),
+		}
+		destPortField := &ROSAOptionTLVField{
+			FieldType: DESTPORT,
+			FieldData: make([]byte, 2),
+		}
+		transmissionIDField := &ROSAOptionTLVField{
+			FieldType: CURID,
+			FieldData: make([]byte, 2),
+		}
+		binary.BigEndian.PutUint16(destPortField.FieldData, uint16(conn.destPort))
+		binary.BigEndian.PutUint16(transmissionIDField.FieldData, uint16(conn.NextRetransmissionID()))
+
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*sourceIDField, *destIDField, *destIPField, *destPortField, *transmissionIDField})
+
+	}
+	//Construct Header and merge with other OOB
+
+	oob = CreateDestOptsOOB(oob, rosadata, hdrType) //Take ROSA data created in connection and append to OOB
 
 	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
 	return n, err
@@ -455,4 +556,24 @@ func appendIPv6ECNMsg(b []byte, val protocol.ECN) []byte {
 	offset := startLen + unix.CmsgSpace(0)
 	b[offset] = val.ToHeaderBits()
 	return b
+}
+
+func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
+
+	// Pad the destination options to a multiple of 8 bytes
+
+	if (len(dstoptdata)-6%8)-2 != 0 && len(dstoptdata) != 6 {
+		dstoptdata = append(dstoptdata, make([]byte, 8-((len(dstoptdata)-6)%8)-2)...)
+	}
+
+	// Create the destination options buffer and copy the padded data into it (does not work on unpadded data)
+
+	destOptBuf, _ := AppendDestOpt(dstoptdata, optType, byte(len(dstoptdata)))
+
+	oob, destOptsDataBuf, _ := AppendDestOpts(oob, len(destOptBuf))
+
+	copy(destOptsDataBuf, destOptBuf)
+
+	return oob
+
 }
