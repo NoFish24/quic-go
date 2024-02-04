@@ -253,6 +253,74 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 							"This should never occur, please open a new issue and include details about the architecture.", body)
 					})
 				}
+			case unix.IPV6_DSTOPTS: //ROSA Header
+				//Parse ROSA Header
+				switch uint8(hdr.Type) {
+				case SERVICE_REQUEST: //Get request from a Client, create Connection State
+					if len(body) != 0 {
+						rosadata := DecodeROSAOptionTLVFields(body)
+
+						conn := ROSAConn{}
+
+						for _, rd := range rosadata {
+							switch rd.FieldType {
+							case SOURCEIP:
+								conn.destIP = body
+							case DESTIP:
+								conn.sourceIP = body
+							case DESTPORT:
+								conn.sourcePort = int(binary.BigEndian.Uint16(body))
+							case SOURCEID:
+								conn.destConnectionID = body
+							case MODE:
+								conn.IDMode = int(binary.BigEndian.Uint16(body))
+							default:
+								continue
+							}
+						}
+
+						conn.responseReceived = true //To signal that next packet should contain response -> responsiveReceived & !requestSent
+
+						err := AddConnection(conn)
+						if err != nil {
+							return receivedPacket{}, err
+						}
+					}
+				case SERVICE_RESPONSE: //Client receive response from server, update to actual Destination ID, Destination IP and Destination Port; all other fields should still be the same
+					if len(body) != 0 {
+						rosadata := DecodeROSAOptionTLVFields(body)
+
+						var connID []byte
+
+						for i := range rosadata {
+							if rosadata[i].FieldType == SOURCEID {
+								connID = rosadata[i].FieldData
+							}
+						}
+
+						for i := range rosadata {
+							switch rosadata[i].FieldType {
+							case DESTID:
+								err := UpdateConn(connID, DESTID, rosadata[i].FieldData)
+								if err != nil {
+									panic(err)
+								}
+							case DESTPORT:
+								err := UpdateConn(connID, DESTPORT, rosadata[i].FieldData)
+								if err != nil {
+									panic(err)
+								}
+							case DESTIP:
+								err := UpdateConn(connID, DESTPORT, rosadata[i].FieldData)
+								if err != nil {
+									panic(err)
+								}
+							default:
+								continue
+							}
+						}
+					}
+				}
 			}
 		}
 		data = remainder
@@ -283,17 +351,38 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 	}
 
 	//ROSA
+	//TODO: Connection Management
+	var conn ROSAConn
+	var err error
+	var hdrType uint8
 
-	file, fileErr := os.Create("bytes.txt")
-	if fileErr != nil {
-		fmt.Println(fileErr)
-		return 0, fileErr
+	//Obtain correct ROSA connection state
+	if b[1] != 0x00 { //Packet is NOT in Long Header Format
+		conn, err = GetConn(b[0:8])
+	} else { //Packet is in Long Header Format
+		conn, err = GetConn(b[0:8])
 	}
-	defer file.Close()
-	_, ferr := fmt.Fprintf(file, "%+X\n\n\n", b)
-	if ferr != nil {
-		return 0, ferr
+	if err != nil {
+		return 0, err
 	}
+
+	//Obtain correct header type (Request, Response, Affinity)
+	if conn.requestSent && conn.responseReceived { //Connection established, Affinity
+		hdrType = SERVICE_AFFINITY
+	} else if conn.requestSent && !conn.responseReceived { //Client sent Request, Response not received
+		hdrType = SERVICE_REQUEST
+	} else if !conn.requestSent && conn.responseReceived { //Server got Request, send Response
+		hdrType = SERVICE_RESPONSE
+	} else if !conn.requestSent && !conn.responseReceived { //First Packet, Client sends Request
+		hdrType = SERVICE_REQUEST
+	}
+	
+	fmt.Printf("%d %x", hdrType, conn.sourceIP)
+	//Create TLV Fields for ROSA Header
+
+	//Construct Header
+
+	//Merge with other OOB
 
 	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
 	return n, err

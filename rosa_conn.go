@@ -23,11 +23,17 @@ type ROSAConn struct {
 	sourceConnectionID, destConnectionID []byte
 	siteRequest                          string
 	responseReceived                     bool
+	requestSent                          bool
 	currentID                            int
 	IDMode                               int
 }
 
 var rosaConnections = struct {
+	sync.RWMutex
+	conns map[int]ROSAConn
+}{conns: make(map[int]ROSAConn)}
+
+var rosaRequestedConnections = struct {
 	sync.RWMutex
 	conns map[int]ROSAConn
 }{conns: make(map[int]ROSAConn)}
@@ -38,7 +44,7 @@ func CreateROSAConn(sourceIP, destIP net.IP,
 	siteRequest string,
 	IDMode int) ROSAConn {
 	return ROSAConn{sourceIP, destIP, sourcePort, destPort, sourceConnectionID,
-		destConnectionID, siteRequest, false, 0, IDMode}
+		destConnectionID, siteRequest, false, false, 0, IDMode}
 }
 
 func CreateROSAConnServer(sourceIP, destIP net.IP,
@@ -47,7 +53,7 @@ func CreateROSAConnServer(sourceIP, destIP net.IP,
 	siteRequest string,
 	IDMode int) ROSAConn {
 	return ROSAConn{sourceIP, destIP, sourcePort, destPort, sourceConnectionID,
-		destConnectionID, siteRequest, true, 0, IDMode}
+		destConnectionID, siteRequest, true, false, 0, IDMode}
 }
 
 func AddConnection(conn ROSAConn) error {
@@ -81,10 +87,139 @@ func RemoveConnection(connectionID []byte) error {
 	return nil
 }
 
+func UpdateConn(connectionID []byte, update uint8, value any) error {
+	key, err := byteArrayToInt(connectionID)
+	if err != nil {
+		return err
+	}
+	rosaConnections.Lock()
+	if entry, ok := rosaConnections.conns[key]; ok {
+		switch update {
+		case SOURCEIP:
+			entry.sourceIP = value.(net.IP)
+		case DESTIP:
+			entry.destIP = value.(net.IP)
+		case SOURCEPORT:
+			entry.sourcePort = value.(int)
+		case DESTPORT:
+			entry.destPort = value.(int)
+		case SOURCEID:
+			entry.sourceConnectionID = value.([]byte)
+		case DESTID:
+			entry.destConnectionID = value.([]byte)
+		case SITE:
+			entry.siteRequest = value.(string)
+		case CURID:
+			entry.currentID = value.(int)
+		case MODE:
+			entry.IDMode = value.(int)
+		default:
+			return fmt.Errorf("No such fiels in ROSAConn")
+		}
+		rosaConnections.conns[key] = entry
+	}
+	rosaConnections.Unlock()
+	return nil
+}
+
 func GetConn(connectionID []byte) (ROSAConn, error) {
 	key, err := byteArrayToInt(connectionID)
 	rosaConnections.RLock()
-	conn := rosaConnections.conns[key]
+	conn, ok := rosaConnections.conns[key]
+	if !ok {
+		rosaConnections.RUnlock()
+		return ROSAConn{}, fmt.Errorf("no Connection for ConnectionID %X", connectionID)
+	}
 	rosaConnections.RUnlock()
 	return conn, err
+}
+
+func (conn ROSAConn) NextRetransmissionID() int {
+	id := conn.currentID
+	conn.currentID += 1
+	return id
+}
+
+func AddRequestConnection(conn ROSAConn) error {
+	key, err := byteArrayToInt(conn.sourceConnectionID)
+	if err != nil {
+		return err
+	}
+
+	//Check if connection already exists
+
+	rosaRequestedConnections.RLock()
+	if _, check := rosaRequestedConnections.conns[key]; check {
+		return nil
+	}
+	rosaRequestedConnections.RUnlock()
+
+	rosaRequestedConnections.Lock()
+	rosaRequestedConnections.conns[key] = conn
+	rosaRequestedConnections.Unlock()
+	return nil
+}
+
+func RemoveRequestConnection(connectionID []byte) error {
+	key, err := byteArrayToInt(connectionID)
+	if err != nil {
+		return err
+	}
+	rosaRequestedConnections.Lock()
+	delete(rosaRequestedConnections.conns, key)
+	rosaRequestedConnections.Unlock()
+	return nil
+}
+
+func UpdateRequestConn(connectionID []byte, update uint8, value any) error {
+	key, err := byteArrayToInt(connectionID)
+	if err != nil {
+		return err
+	}
+	rosaRequestedConnections.Lock()
+	if entry, ok := rosaRequestedConnections.conns[key]; ok {
+		switch update {
+		case SOURCEIP:
+			entry.sourceIP = value.(net.IP)
+		case DESTIP:
+			entry.destIP = value.(net.IP)
+		case SOURCEPORT:
+			entry.sourcePort = value.(int)
+		case DESTPORT:
+			entry.destPort = value.(int)
+		case SOURCEID:
+			entry.sourceConnectionID = value.([]byte)
+		case DESTID:
+			entry.destConnectionID = value.([]byte)
+		case SITE:
+			entry.siteRequest = value.(string)
+		case CURID:
+			entry.currentID = value.(int)
+		case MODE:
+			entry.IDMode = value.(int)
+		default:
+			return fmt.Errorf("No such fiels in ROSAConn")
+		}
+		rosaRequestedConnections.conns[key] = entry
+	}
+	rosaRequestedConnections.Unlock()
+	return nil
+}
+
+func GetRequestConn(connectionID []byte) (ROSAConn, error) {
+	key, err := byteArrayToInt(connectionID)
+	rosaRequestedConnections.RLock()
+	conn, ok := rosaRequestedConnections.conns[key]
+	if !ok {
+		rosaRequestedConnections.RUnlock()
+		return ROSAConn{}, fmt.Errorf("no Connection for ConnectionID %X", connectionID)
+	}
+	rosaRequestedConnections.RUnlock()
+	return conn, err
+}
+
+func (conn ROSAConn) NextRetransmissionID() int {
+	id := conn.currentID
+	conn.currentID += 1
+	return id
 }

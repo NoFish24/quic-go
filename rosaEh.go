@@ -5,28 +5,26 @@ package quic
 const SERVICE_ANNOUNCEMENT uint8 = 0x1e
 const SERVICE_REQUEST uint8 = 0x3e
 const SERVICE_RESPONSE uint8 = 0x5e
+const SERVICE_AFFINITY uint8 = 0x7e
 
 // Entries in Service Request/Response. These will be encoded as TLVs
-const INSTANCE_IP uint8 = 0x1
-const SERVICE_ID uint8 = 0x2
-const CONSTRAINT uint8 = 0x3
-const CLIENT_IP uint8 = 0x4
-const INGRESS_IP uint8 = 0x5
-const PORT uint8 = 0x6
+const SOURCEIP uint8 = 0x1
+const DESTIP uint8 = 0x2
+const INGRESSIP uint8 = 0x3
+const EGRESSIP uint8 = 0x4
+const SOURCEPORT uint8 = 0x5
+const DESTPORT uint8 = 0x6
+const SOURCEID uint8 = 0x7
+const DESTID uint8 = 0x8
+const SITE uint8 = 0x9
+const CURID uint8 = 0xa
+const MODE uint8 = 0xb
+const REQUEST uint8 = 0xc
 
 // Standardized ROSA Field (e.g. for instance IP)
 type ROSAOptionTLVField struct {
 	FieldType, FieldLength uint8
 	FieldData              []byte
-}
-
-var nameMap = map[uint8]string{
-	INSTANCE_IP: "Instance IP",
-	SERVICE_ID:  "Service ID",
-	CONSTRAINT:  "Constraint",
-	CLIENT_IP:   "Client IP",
-	INGRESS_IP:  "Ingres IP",
-	PORT:        "Port",
 }
 
 // Prepare one ROSA TLV Field, e.g., for Instance IP
