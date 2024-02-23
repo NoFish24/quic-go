@@ -45,8 +45,9 @@ var generateConnectionIDForInitial = protocol.GenerateConnectionIDForInitial
 // DialAddr establishes a new QUIC connection to a server.
 // It resolves the address, and then creates a new UDP connection to dial the QUIC server.
 // When the QUIC connection is closed, this UDP connection is closed.
+// udpAddr workds as the Gateway for the ROSA connection, addr as the Service we want to connect to.
 // See Dial for more details.
-func DialAddr(ctx context.Context, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
+func DialAddr(ctx context.Context, udpaddr string, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
 
 	ctx = context.WithValue(ctx, "RequestSite", addr)
 
@@ -54,7 +55,7 @@ func DialAddr(ctx context.Context, addr string, tlsConf *tls.Config, conf *Confi
 	if err != nil {
 		return nil, err
 	}
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	udpAddr, err := net.ResolveUDPAddr("udp", udpaddr)
 	if err != nil {
 		return nil, err
 	}

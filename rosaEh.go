@@ -8,18 +8,19 @@ const SERVICE_RESPONSE uint8 = 0x5e
 const SERVICE_AFFINITY uint8 = 0x7e
 
 // Entries in Service Request/Response. These will be encoded as TLVs
-const SOURCEIP uint8 = 0x1
-const DESTIP uint8 = 0x2
-const INGRESSIP uint8 = 0x3
-const EGRESSIP uint8 = 0x4
-const SOURCEPORT uint8 = 0x5
-const DESTPORT uint8 = 0x6
-const SOURCEID uint8 = 0x7
-const DESTID uint8 = 0x8
-const SITE uint8 = 0x9
-const CURID uint8 = 0xa
-const MODE uint8 = 0xb
-const REQUEST uint8 = 0xc
+const INSTANCE_IP uint8 = 0x1
+const SERVICE_ID uint8 = 0x2
+const CONSTRAINT uint8 = 0x3
+const CLIENT_IP uint8 = 0x4
+const INGRESS_IP uint8 = 0x5
+const PORT uint8 = 0x6
+const EGRESS_IP uint8 = 0x7
+const INSTANCE_PORT uint8 = 0x8
+const PACKETID uint8 = 0x9
+const CLIENT_CONNECTIONID uint8 = 0xa
+const INSTANCE_CONNECTIONID uint8 = 0xb
+const ID_MODE uint8 = 0xc
+const REQUEST_SENT uint8 = 0xf
 
 // Standardized ROSA Field (e.g. for instance IP)
 type ROSAOptionTLVField struct {

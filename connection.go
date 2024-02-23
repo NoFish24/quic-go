@@ -113,6 +113,9 @@ func (e *errCloseForRecreating) Error() string {
 	return "closing connection in order to recreate it"
 }
 
+// ROSA variables
+var SourceAddr net.Addr
+
 var connTracingID uint64        // to be accessed atomically
 func nextConnTracingID() uint64 { return atomic.AddUint64(&connTracingID, 1) }
 
@@ -329,13 +332,8 @@ var newConnection = func(
 		s.version,
 	)
 
-	//ROSA
-
-	rosaconn := CreateROSAConnServer(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, conn.RemoteAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), nil, siteRequest, 0)
-	err := AddConnection(rosaconn)
-	if err != nil {
-		panic(err)
-	}
+	//ROSA: Server has no other way to find these information
+	SourceAddr = conn.LocalAddr()
 
 	s.cryptoStreamHandler = cs
 	s.packer = newPacketPacker(srcConnID, s.connIDManager.Get, s.initialStream, s.handshakeStream, s.sentPacketHandler, s.retransmissionQueue, cs, s.framer, s.receivedPacketHandler, s.datagramQueue, s.perspective)
@@ -446,11 +444,13 @@ var newClientConnection = func(
 
 	//ROSA
 
-	rosaconn := CreateROSAConn(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, conn.RemoteAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), nil, siteRequest, 0)
+	rosaconn := CreateROSAConn(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), siteRequest, 0, 1)
 	err := AddConnection(rosaconn)
 	if err != nil {
 		panic(err)
 	}
+	SourceAddr = conn.LocalAddr()
+
 	s.cryptoStreamHandler = cs
 	s.cryptoStreamManager = newCryptoStreamManager(cs, s.initialStream, s.handshakeStream, oneRTTStream)
 	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen)
