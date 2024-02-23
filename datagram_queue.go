@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/utils/ringbuffer"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/internal/utils/ringbuffer"
+	"github.com/nofish24/quic-go/internal/wire"
 )
 
 const (

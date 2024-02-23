@@ -1,6 +1,6 @@
 package quic
 
-import "github.com/quic-go/quic-go/internal/protocol"
+import "github.com/nofish24/quic-go/internal/protocol"
 
 type sender interface {
 	Send(p *packetBuffer, gsoSize uint16, ecn protocol.ECN)

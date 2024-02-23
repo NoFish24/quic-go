@@ -11,10 +11,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/qerr"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/quicvarint"
 )
 
 // AdditionalTransportParametersClient are additional transport parameters that will be added
