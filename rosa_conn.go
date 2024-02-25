@@ -33,14 +33,14 @@ func CreateROSAConn(sourceIP, ingressIP net.IP,
 	siteRequest string,
 	IDMode int,
 	endpoint uint32) ROSAConn {
-	sourceid := uint32(binary.BigEndian.Uint16(sourceConnectionID[0:1])) << 29
-	initialid := endpoint<<31 + sourceid //id construction: 1bit if client or server, 2bit identification, rest is counting packet id
-	initialid = endpoint << 31           //TODO: Do we really need unique ids? We identify by ConnID, not PacketID
+	//sourceid := uint32(binary.BigEndian.Uint16(idbuf[0:1])) << 29
+	//initialid := endpoint<<31 + sourceid //id construction: 1bit if client or server, 2bit identification, rest is counting packet id
+	initialid := endpoint << 31 //TODO: Do we really need unique ids? We identify by ConnID, not PacketID
 	return ROSAConn{sourceIP: sourceIP, ingressIP: ingressIP, sourcePort: sourcePort, sourceConnectionID: sourceConnectionID, siteRequest: siteRequest, currentID: initialid, IDMode: IDMode}
 }
 
 func AddConnection(conn ROSAConn) error {
-	key := byteArrayToInt(conn.sourceConnectionID)
+	key := byteArrayToInt(cleanConnID(conn.sourceConnectionID))
 
 	//Check if connection already exists
 
@@ -57,7 +57,7 @@ func AddConnection(conn ROSAConn) error {
 }
 
 func AddConnectionClient(conn ROSAConn) error { // used after getting a response; for affinity we only have the destination connection id available
-	key := byteArrayToInt(conn.destConnectionID)
+	key := byteArrayToInt(cleanConnID(conn.sourceConnectionID))
 
 	//Check if connection already exists
 
@@ -74,7 +74,7 @@ func AddConnectionClient(conn ROSAConn) error { // used after getting a response
 }
 
 func RemoveConnection(connectionID []byte) error {
-	key := byteArrayToInt(connectionID)
+	key := byteArrayToInt(cleanConnID(connectionID))
 	rosaConnections.Lock()
 	delete(rosaConnections.conns, key)
 	rosaConnections.Unlock()
@@ -82,7 +82,7 @@ func RemoveConnection(connectionID []byte) error {
 }
 
 func UpdateConn(connectionID []byte, update uint8, value any) error {
-	key := byteArrayToInt(connectionID)
+	key := byteArrayToInt(cleanConnID(connectionID))
 	rosaConnections.Lock()
 	if entry, ok := rosaConnections.conns[key]; ok {
 		switch update {
@@ -116,7 +116,7 @@ func UpdateConn(connectionID []byte, update uint8, value any) error {
 }
 
 func GetConn(connectionID []byte) (ROSAConn, error) {
-	key := byteArrayToInt(connectionID)
+	key := byteArrayToInt(cleanConnID(connectionID))
 	rosaConnections.RLock()
 	conn, ok := rosaConnections.conns[key]
 	if !ok {
@@ -131,4 +131,9 @@ func (conn ROSAConn) NextRetransmissionID() uint32 {
 	id := conn.currentID
 	conn.currentID += 1
 	return id
+}
+
+func cleanConnID(id []byte) []byte {
+	idbuf := append(id, []byte{0x0, 0x0, 0x0, 0x0}...)
+	return idbuf[:4]
 }

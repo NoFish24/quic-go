@@ -444,7 +444,7 @@ var newClientConnection = func(
 
 	//ROSA
 
-	fmt.Printf("ConnID: %x, ConnIDLen: %d\n", srcConnID.Bytes(), s.srcConnIDLen)
+	fmt.Printf("ConnID: %x, ConnIDLen: %d\n", srcConnID.Bytes(), s.connIDGenerator.generator.ConnectionIDLen())
 
 	rosaconn := CreateROSAConn(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), siteRequest, 0, 1)
 	err := AddConnection(rosaconn)
