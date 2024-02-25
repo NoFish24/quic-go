@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/nofish24/quic-go/internal/protocol"
@@ -160,6 +161,9 @@ func dial(
 	if c.tracer != nil && c.tracer.StartedConnection != nil {
 		c.tracer.StartedConnection(c.sendConn.LocalAddr(), c.sendConn.RemoteAddr(), c.srcConnID, c.destConnID)
 	}
+
+	fmt.Printf("ConnID: %x, ConnIDLen: %d/n", c.srcConnID.Bytes(), len(c.srcConnID.Bytes()))
+
 	if err := c.dial(ctx); err != nil {
 		return nil, err
 	}
