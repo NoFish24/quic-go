@@ -13,7 +13,7 @@ func byteArrayToInt(byteSlice []byte) uint64 {
 
 type ROSAConn struct {
 	sourceIP, destIP, ingressIP, egressIP net.IP
-	sourcePort, destPort, ingressPort     int
+	sourcePort, destPort                  int
 	sourceConnectionID, destConnectionID  []byte
 	siteRequest                           string
 	responseReceived                      bool
