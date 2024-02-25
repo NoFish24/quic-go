@@ -612,7 +612,7 @@ func createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 		binary.BigEndian.PutUint16(destPortField.FieldData, uint16(conn.destPort))
 		binary.BigEndian.PutUint32(transmissionIDField.FieldData, conn.NextRetransmissionID())
 
-		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*sourceIDField, *destIDField, *ingressIPField, *egressIPField, *destIPField, *destPortField, *transmissionIDField})
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*sourceIDField, *ingressIPField, *egressIPField, *destIPField, *destPortField, *transmissionIDField})
 
 	}
 
