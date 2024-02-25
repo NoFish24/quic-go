@@ -162,7 +162,7 @@ func dial(
 		c.tracer.StartedConnection(c.sendConn.LocalAddr(), c.sendConn.RemoteAddr(), c.srcConnID, c.destConnID)
 	}
 
-	fmt.Printf("ConnID: %x, ConnIDLen: %d/n", c.srcConnID.Bytes(), len(c.srcConnID.Bytes()))
+	fmt.Printf("ConnID: %x, ConnIDLen: %d\n", c.srcConnID.Bytes(), len(c.srcConnID.Bytes()))
 
 	if err := c.dial(ctx); err != nil {
 		return nil, err
@@ -175,6 +175,7 @@ func newClient(sendConn sendConn, connIDGenerator ConnectionIDGenerator, config 
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("ConnID: %x, ConnIDLen: %d\n", srcConnID.Bytes(), srcConnID.Len())
 	destConnID, err := generateConnectionIDForInitial()
 	if err != nil {
 		return nil, err
