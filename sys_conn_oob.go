@@ -378,10 +378,10 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 	}
 	if err != nil {
 		fmt.Println("No conn found.")
+		fmt.Println(err.Error())
 		return 0, err
 	}
-
-	hdrType, rosadata = createROSAOOB(conn, b[6:6+b[5]-1])
+	hdrType, rosadata = createROSAOOB(conn, b[6:5+b[5]])
 
 	//Construct Header and merge with other OOB
 

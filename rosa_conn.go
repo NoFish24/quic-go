@@ -33,6 +33,7 @@ func CreateROSAConn(sourceIP, ingressIP net.IP,
 	siteRequest string,
 	IDMode int,
 	endpoint uint32) ROSAConn {
+	fmt.Println(byteArrayToInt(cleanConnID(sourceConnectionID)))
 	//sourceid := uint32(binary.BigEndian.Uint16(idbuf[0:1])) << 29
 	//initialid := endpoint<<31 + sourceid //id construction: 1bit if client or server, 2bit identification, rest is counting packet id
 	initialid := endpoint << 31 //TODO: Do we really need unique ids? We identify by ConnID, not PacketID
@@ -124,6 +125,7 @@ func GetConn(connectionID []byte) (ROSAConn, error) {
 		return ROSAConn{}, fmt.Errorf("no Connection for ConnectionID %X", connectionID)
 	}
 	rosaConnections.RUnlock()
+	fmt.Println("Found Conn!")
 	return conn, nil
 }
 
