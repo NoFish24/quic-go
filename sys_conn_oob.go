@@ -282,7 +282,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 						}
 
 						conn.sourceIP = SourceAddr.(*net.UDPAddr).IP
-						conn.sourcePort = SourceAddr.(*net.UDPAddr).IP
+						conn.sourcePort = SourceAddr.(*net.UDPAddr).Port
 						conn.currentID = 0 // uint(0)<<31 + uint32(binary.BigEndian.Uint16(conn.sourceConnectionID[0:1]))<<29
 
 						conn.responseReceived = true //To signal that next packet should contain response -> responsiveReceived & !requestSent
@@ -313,7 +313,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 						for i := range rosadata {
 							switch rosadata[i].FieldType {
 							case INSTANCE_PORT:
-								conn.destPort = int(rosadata[i].FieldData)
+								conn.destPort = int(binary.BigEndian.Uint16(rosadata[i].FieldData))
 							case INSTANCE_IP:
 								conn.destIP = rosadata[i].FieldData
 							case INGRESS_IP:
@@ -324,9 +324,8 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 								continue
 							}
 						}
-
 						err = RemoveConnection(connID)
-						AddConnectionClient(connID)
+						AddConnectionClient(conn)
 						if err != nil {
 							panic(err)
 						}
@@ -464,16 +463,16 @@ func appendIPv6ECNMsg(b []byte, val protocol.ECN) []byte {
 func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
 
 	startLen := len(oob)
-	const dataLen = len(dstoptdata)
+	dataLen := len(dstoptdata)
 	oob = append(oob, make([]byte, unix.CmsgSpace(dataLen))...)
-	h := (*unix.Cmsghdr)(unsafe.Pointer(&b[startLen]))
+	h := (*unix.Cmsghdr)(unsafe.Pointer(&oob[startLen]))
 	h.Level = syscall.IPPROTO_IPV6
 	h.Type = unix.IPV6_DSTOPTS
 	h.SetLen(unix.CmsgLen(dataLen))
 
 	// UnixRights uses the private `data` method, but I *think* this achieves the same goal.
-	offset := startLen + unix.CmsgSpace(0)
-	b[offset] = val.ToHeaderBits()
+	offset := startLen + unix.SizeofCmsghdr
+	copy(oob[offset:], dstoptdata)
 
 	return oob
 
@@ -532,7 +531,7 @@ func createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 			FieldData: make([]byte, 2),
 		}
 		binary.BigEndian.PutUint16(clientPortField.FieldData, uint16(conn.sourcePort))
-		binary.BigEndian.PutUint16(transmissionIDField.FieldData, conn.NextRetransmissionID())
+		binary.BigEndian.PutUint32(transmissionIDField.FieldData, conn.NextRetransmissionID())
 		binary.BigEndian.PutUint16(idModeField.FieldData, uint16(0))
 
 		UpdateConn(conn.sourceConnectionID, REQUEST_SENT, true)
@@ -581,9 +580,9 @@ func createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 		}
 		binary.BigEndian.PutUint16(clientPortField.FieldData, uint16(conn.destPort))
 		binary.BigEndian.PutUint16(destPortField.FieldData, uint16(conn.sourcePort))
-		binary.BigEndian.PutUint16(transmissionIDField.FieldData, conn.NextRetransmissionID())
+		binary.BigEndian.PutUint32(transmissionIDField.FieldData, conn.NextRetransmissionID())
 
-		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *clientPortField, *destIPField, *destPortField, *ingressIPField, *egressIPField, *sourceIDField, *instanceIDField, *destIDField, *transmissionIDField})
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *clientPortField, *destIPField, *destPortField, *ingressIPField, *egressIPField, *sourceIDField, *instanceIDField, *transmissionIDField})
 
 	case SERVICE_AFFINITY:
 		sourceIDField := &ROSAOptionTLVField{
@@ -611,7 +610,7 @@ func createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 			FieldData: make([]byte, 4),
 		}
 		binary.BigEndian.PutUint16(destPortField.FieldData, uint16(conn.destPort))
-		binary.BigEndian.PutUint16(transmissionIDField.FieldData, conn.NextRetransmissionID())
+		binary.BigEndian.PutUint32(transmissionIDField.FieldData, conn.NextRetransmissionID())
 
 		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*sourceIDField, *destIDField, *ingressIPField, *egressIPField, *destIPField, *destPortField, *transmissionIDField})
 
