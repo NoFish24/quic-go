@@ -7,8 +7,8 @@ import (
 	"sync"
 )
 
-func byteArrayToInt(byteSlice []byte) uint64 {
-	return binary.BigEndian.Uint64(byteSlice[:4])
+func byteArrayToInt(byteSlice []byte) uint32 {
+	return binary.BigEndian.Uint32(byteSlice[:4])
 }
 
 type ROSAConn struct {
@@ -24,8 +24,8 @@ type ROSAConn struct {
 
 var rosaConnections = struct {
 	sync.RWMutex
-	conns map[uint64]ROSAConn
-}{conns: make(map[uint64]ROSAConn)}
+	conns map[uint32]ROSAConn
+}{conns: make(map[uint32]ROSAConn)}
 
 func CreateROSAConn(sourceIP, ingressIP net.IP,
 	sourcePort int,
