@@ -226,7 +226,8 @@ func (t *Transport) dial(ctx context.Context, addr net.Addr, host string, tlsCon
 		return nil, err
 	}
 	conf = populateConfig(conf)
-	if err := t.init(t.isSingleUse); err != nil {
+	//ROSA - DO NOT ALLOW SINGLE USE CONNIDs
+	if err := t.init(false); err != nil {
 		return nil, err
 	}
 	var onClose func()

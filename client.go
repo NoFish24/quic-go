@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"net"
 
 	"github.com/nofish24/quic-go/internal/protocol"
@@ -48,15 +47,21 @@ var generateConnectionIDForInitial = protocol.GenerateConnectionIDForInitial
 // When the QUIC connection is closed, this UDP connection is closed.
 // udpAddr workds as the Gateway for the ROSA connection, addr as the Service we want to connect to.
 // See Dial for more details.
-func DialAddr(ctx context.Context, udpaddr string, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
+func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
 
 	ctx = context.WithValue(ctx, "RequestSite", addr)
 
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	edgeAddr, err := net.ResolveUDPAddr("udp", edgeaddress)
 	if err != nil {
 		return nil, err
 	}
-	udpAddr, err := net.ResolveUDPAddr("udp", udpaddr)
+	/*
+		cliAddr, err := net.ResolveUDPAddr("udp", clientaddress)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +69,7 @@ func DialAddr(ctx context.Context, udpaddr string, addr string, tlsConf *tls.Con
 	if err != nil {
 		return nil, err
 	}
-	return tr.dial(ctx, udpAddr, addr, tlsConf, conf, false)
+	return tr.dial(ctx, edgeAddr, addr, tlsConf, conf, false)
 }
 
 // DialAddrEarly establishes a new 0-RTT QUIC connection to a server.
@@ -162,8 +167,6 @@ func dial(
 		c.tracer.StartedConnection(c.sendConn.LocalAddr(), c.sendConn.RemoteAddr(), c.srcConnID, c.destConnID)
 	}
 
-	fmt.Printf("ConnID: %x, ConnIDLen: %d\n", c.srcConnID.Bytes(), len(c.srcConnID.Bytes()))
-
 	if err := c.dial(ctx); err != nil {
 		return nil, err
 	}
@@ -175,7 +178,6 @@ func newClient(sendConn sendConn, connIDGenerator ConnectionIDGenerator, config 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("ConnID: %x, ConnIDLen: %d\n", srcConnID.Bytes(), srcConnID.Len())
 	destConnID, err := generateConnectionIDForInitial()
 	if err != nil {
 		return nil, err

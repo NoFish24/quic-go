@@ -20,6 +20,7 @@ const PACKETID uint8 = 0x9
 const CLIENT_CONNECTIONID uint8 = 0xa
 const INSTANCE_CONNECTIONID uint8 = 0xb
 const ID_MODE uint8 = 0xc
+const RESPONSE = 0xe
 const REQUEST_SENT uint8 = 0xf
 
 // Standardized ROSA Field (e.g. for instance IP)
@@ -60,7 +61,7 @@ func decodeAndTruncateOneField(buf []byte) (*ROSAOptionTLVField, []byte) {
 
 // Decode all TLV fields from option data associated with a ROSA Destination Option EH
 func DecodeROSAOptionTLVFields(optionData []byte) []*ROSAOptionTLVField {
-	optionDataCopy := optionData
+	optionDataCopy := optionData[4:]
 	decodedTLVFields := []*ROSAOptionTLVField{}
 	for len(optionDataCopy) > 0 {
 		// If the first byte of (truncated) optionData slice is 0, it means its padding and we don't have anything else to decode

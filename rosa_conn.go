@@ -12,14 +12,14 @@ func byteArrayToInt(byteSlice []byte) uint32 {
 }
 
 type ROSAConn struct {
-	sourceIP, destIP, ingressIP, egressIP net.IP
-	sourcePort, destPort                  int
-	sourceConnectionID, destConnectionID  []byte
-	siteRequest                           string
-	responseReceived                      bool
-	requestSent                           bool
-	currentID                             uint32
-	IDMode                                int
+	sourceIP, destIP, ingressIP, egressIP       net.IP
+	sourcePort, destPort                        int
+	keyid, sourceConnectionID, destConnectionID []byte
+	siteRequest                                 string
+	responseReceived                            bool
+	requestSent                                 bool
+	currentID                                   uint32
+	IDMode                                      int
 }
 
 var rosaConnections = struct {
@@ -33,15 +33,15 @@ func CreateROSAConn(sourceIP, ingressIP net.IP,
 	siteRequest string,
 	IDMode int,
 	endpoint uint32) ROSAConn {
-	fmt.Println(byteArrayToInt(cleanConnID(sourceConnectionID)))
 	//sourceid := uint32(binary.BigEndian.Uint16(idbuf[0:1])) << 29
 	//initialid := endpoint<<31 + sourceid //id construction: 1bit if client or server, 2bit identification, rest is counting packet id
 	initialid := endpoint << 31 //TODO: Do we really need unique ids? We identify by ConnID, not PacketID
 	return ROSAConn{sourceIP: sourceIP, ingressIP: ingressIP, sourcePort: sourcePort, sourceConnectionID: sourceConnectionID, siteRequest: siteRequest, currentID: initialid, IDMode: IDMode}
 }
 
-func AddConnection(conn ROSAConn) error {
-	key := byteArrayToInt(cleanConnID(conn.sourceConnectionID))
+func AddConnection(conn ROSAConn, keyid []byte) error {
+	conn.keyid = keyid
+	key := byteArrayToInt(cleanConnID(keyid))
 
 	//Check if connection already exists
 
@@ -54,23 +54,7 @@ func AddConnection(conn ROSAConn) error {
 	rosaConnections.Lock()
 	rosaConnections.conns[key] = conn
 	rosaConnections.Unlock()
-	return nil
-}
-
-func AddConnectionClient(conn ROSAConn) error { // used after getting a response; for affinity we only have the destination connection id available
-	key := byteArrayToInt(cleanConnID(conn.sourceConnectionID))
-
-	//Check if connection already exists
-
-	rosaConnections.RLock()
-	if _, check := rosaConnections.conns[key]; check {
-		return nil
-	}
-	rosaConnections.RUnlock()
-
-	rosaConnections.Lock()
-	rosaConnections.conns[key] = conn
-	rosaConnections.Unlock()
+	fmt.Printf("Connection added:\nConnID: % x\nSourceIP: %s\nSourcePort: %d\nDestIP: %s\nDestPort: %d\nIngress: %s\nEgress: %s\n", conn.sourceConnectionID, conn.sourceIP, conn.sourcePort, conn.destIP, conn.destPort, conn.ingressIP, conn.egressIP)
 	return nil
 }
 
@@ -107,6 +91,8 @@ func UpdateConn(connectionID []byte, update uint8, value any) error {
 			entry.IDMode = value.(int)
 		case REQUEST_SENT:
 			entry.requestSent = value.(bool)
+		case RESPONSE:
+			entry.responseReceived = value.(bool)
 		default:
 			return fmt.Errorf("no such fiels in ROSAConn")
 		}
@@ -131,7 +117,7 @@ func GetConn(connectionID []byte) (ROSAConn, error) {
 
 func (conn ROSAConn) NextRetransmissionID() uint32 {
 	id := conn.currentID
-	conn.currentID += 1
+	conn.currentID++
 	return id
 }
 
