@@ -211,6 +211,9 @@ type connection struct {
 	connStateMutex sync.Mutex
 	connState      ConnectionState
 
+	//ROSA
+	firstConnectionID []byte
+
 	logID  string
 	tracer *logging.ConnectionTracer
 	logger utils.Logger
@@ -334,6 +337,7 @@ var newConnection = func(
 
 	//ROSA: Server has no other way to find these information
 	SourceAddr = conn.LocalAddr()
+	s.firstConnectionID = s.connIDManager.Get().Bytes()
 
 	s.cryptoStreamHandler = cs
 	s.packer = newPacketPacker(srcConnID, s.connIDManager.Get, s.initialStream, s.handshakeStream, s.sentPacketHandler, s.retransmissionQueue, cs, s.framer, s.receivedPacketHandler, s.datagramQueue, s.perspective)
@@ -443,7 +447,7 @@ var newClientConnection = func(
 	)
 
 	//ROSA
-
+	s.firstConnectionID = srcConnID.Bytes()
 	rosaconn := CreateROSAConn(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), siteRequest, 0, 1)
 	err := AddConnection(rosaconn, rosaconn.sourceConnectionID)
 	if err != nil {
@@ -1506,7 +1510,15 @@ func (s *connection) handleNewTokenFrame(frame *wire.NewTokenFrame) error {
 }
 
 func (s *connection) handleNewConnectionIDFrame(f *wire.NewConnectionIDFrame) error {
-	return s.connIDManager.Add(f)
+	err := s.connIDManager.Add(f)
+	//ROSA
+	//Update RosaConn with new DestConnectionID
+	fmt.Printf("NewConnectionIDFrame: new active ID: % x, FirstID: % x\n", s.connIDManager.Get().Bytes(), s.firstConnectionID)
+	_, errchange := GetOnConnIDChange(s.firstConnectionID, s.connIDManager.Get().Bytes())
+	if errchange != nil {
+		fmt.Println("Err: ", err)
+	}
+	return err
 }
 
 func (s *connection) handleRetireConnectionIDFrame(f *wire.RetireConnectionIDFrame, destConnID protocol.ConnectionID) error {
@@ -2115,6 +2127,7 @@ func (s *connection) sendPackedCoalescedPacket(packet *coalescedPacket, ecn prot
 		}
 		s.sentPacketHandler.SentPacket(now, p.PacketNumber, largestAcked, p.StreamFrames, p.Frames, protocol.Encryption1RTT, ecn, p.Length, p.IsPathMTUProbePacket)
 	}
+
 	s.connIDManager.SentPacket()
 	s.sendQueue.Send(packet.buffer, 0, ecn)
 	return nil

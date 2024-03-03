@@ -4,8 +4,8 @@ package quic
 // Using velues meant for experimentation
 const SERVICE_ANNOUNCEMENT uint8 = 0x1e
 const SERVICE_REQUEST uint8 = 0x3e
-const SERVICE_RESPONSE uint8 = 0x5e
-const SERVICE_AFFINITY uint8 = 0x7e
+const SERVICE_RESPONSE uint8 = 0x3f
+const SERVICE_AFFINITY uint8 = 0x3d
 
 // Entries in Service Request/Response. These will be encoded as TLVs
 const INSTANCE_IP uint8 = 0x1

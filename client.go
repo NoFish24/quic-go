@@ -61,7 +61,7 @@ func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, add
 			return nil, err
 		}
 	*/
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 11337})
 	if err != nil {
 		return nil, err
 	}
