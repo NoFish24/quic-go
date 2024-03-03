@@ -21,6 +21,12 @@ type ROSAConn struct {
 	requestSent                                                       bool
 	currentID                                                         uint32
 	IDMode                                                            int
+	memory                                                            Memory
+}
+
+type Memory struct {
+	oob     []byte
+	hdrType uint8
 }
 
 var rosaConnections = struct {
@@ -105,6 +111,25 @@ func UpdateConn(connectionID []byte, update uint8, value any) error {
 	return nil
 }
 
+func (r ROSAConn) SetMemory(mem Memory) {
+	r.memory = mem
+	rosaConnections.Lock()
+	rosaConnections.conns[byteArrayToInt(cleanConnID(r.keyid))] = r
+	rosaConnections.Unlock()
+}
+
+func (r ROSAConn) GetMemory() (uint8, []byte) {
+	if r.memory.oob != nil {
+		ret := r.memory
+		r.memory = Memory{}
+		rosaConnections.Lock()
+		rosaConnections.conns[byteArrayToInt(cleanConnID(r.keyid))] = r
+		rosaConnections.Unlock()
+		return ret.hdrType, ret.oob
+	}
+	return 0, nil
+}
+
 func GetConn(connectionID []byte) (ROSAConn, error) {
 	key := byteArrayToInt(cleanConnID(connectionID))
 	rosaConnections.RLock()
@@ -114,13 +139,13 @@ func GetConn(connectionID []byte) (ROSAConn, error) {
 		return ROSAConn{}, fmt.Errorf("no Connection for ConnectionID % x", connectionID)
 	}
 	rosaConnections.RUnlock()
-	fmt.Printf("Conn: % x, % x\n", conn.keyid, conn.sourceConnectionID)
+	fmt.Printf("Conn: % x, % x\n", conn.keyid, conn.firstSrcConnectionID)
 	return conn, nil
 }
 
-func (conn ROSAConn) NextRetransmissionID() uint32 {
-	id := conn.currentID
-	UpdateConn(conn.keyid, PACKETID, id+1)
+func (r ROSAConn) NextRetransmissionID() uint32 {
+	id := r.currentID
+	UpdateConn(r.keyid, PACKETID, id+1)
 	return id
 }
 
