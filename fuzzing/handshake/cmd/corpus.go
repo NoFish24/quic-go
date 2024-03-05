@@ -5,13 +5,13 @@ import (
 	"log"
 	"net"
 
-	fuzzhandshake "github.com/quic-go/quic-go/fuzzing/handshake"
-	"github.com/quic-go/quic-go/fuzzing/internal/helper"
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	fuzzhandshake "github.com/nofish24/quic-go/fuzzing/handshake"
+	"github.com/nofish24/quic-go/fuzzing/internal/helper"
+	"github.com/nofish24/quic-go/internal/handshake"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/testdata"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/internal/wire"
 )
 
 const alpn = "fuzz"

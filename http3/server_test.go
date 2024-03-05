@@ -13,12 +13,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	mockquic "github.com/quic-go/quic-go/internal/mocks/quic"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/nofish24/quic-go"
+	mockquic "github.com/nofish24/quic-go/internal/mocks/quic"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/testdata"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/quicvarint"
 
 	"github.com/golang/mock/gomock"
 	"github.com/quic-go/qpack"

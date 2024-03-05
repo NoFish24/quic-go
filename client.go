@@ -6,9 +6,9 @@ import (
 	"errors"
 	"net"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/logging"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/logging"
 )
 
 type client struct {
@@ -46,12 +46,21 @@ var generateConnectionIDForInitial = protocol.GenerateConnectionIDForInitial
 // It resolves the address, and then creates a new UDP connection to dial the QUIC server.
 // When the QUIC connection is closed, this UDP connection is closed.
 // See Dial for more details.
-func DialAddr(ctx context.Context, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
+
+	ctx = context.WithValue(ctx, "RequestSite", addr)
+
+	edgeAddr, err := net.ResolveUDPAddr("udp", edgeaddress)
 	if err != nil {
 		return nil, err
 	}
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	/*
+		cliAddr, err := net.ResolveUDPAddr("udp", clientaddress)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 11337})
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +68,7 @@ func DialAddr(ctx context.Context, addr string, tlsConf *tls.Config, conf *Confi
 	if err != nil {
 		return nil, err
 	}
-	return tr.dial(ctx, udpAddr, addr, tlsConf, conf, false)
+	return tr.dial(ctx, edgeAddr, addr, tlsConf, conf, false)
 }
 
 // DialAddrEarly establishes a new 0-RTT QUIC connection to a server.
@@ -195,6 +204,7 @@ func (c *client) dial(ctx context.Context) error {
 		c.packetHandlers,
 		c.destConnID,
 		c.srcConnID,
+		ctx.Value("RequestSite").(string),
 		c.connIDGenerator,
 		c.config,
 		c.tlsConf,

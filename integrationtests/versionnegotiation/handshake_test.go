@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/integrationtests/tools/israce"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/logging"
+	"github.com/nofish24/quic-go"
+	"github.com/nofish24/quic-go/integrationtests/tools/israce"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/logging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

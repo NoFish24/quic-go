@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	mocklogging "github.com/quic-go/quic-go/internal/mocks/logging"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/utils"
+	mocklogging "github.com/nofish24/quic-go/internal/mocks/logging"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/qerr"
+	"github.com/nofish24/quic-go/internal/utils"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"

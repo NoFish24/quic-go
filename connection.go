@@ -13,15 +13,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/flowcontrol"
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/logutils"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
-	"github.com/quic-go/quic-go/logging"
+	"github.com/nofish24/quic-go/internal/ackhandler"
+	"github.com/nofish24/quic-go/internal/flowcontrol"
+	"github.com/nofish24/quic-go/internal/handshake"
+	"github.com/nofish24/quic-go/internal/logutils"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/qerr"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/internal/wire"
+	"github.com/nofish24/quic-go/logging"
 )
 
 type unpacker interface {
@@ -167,6 +167,10 @@ type connection struct {
 	// closeChan is used to notify the run loop that it should terminate
 	closeChan chan closeError
 
+	//ROSA
+
+	firstConnectionID []byte
+
 	ctx                context.Context
 	ctxCancel          context.CancelCauseFunc
 	handshakeCtx       context.Context
@@ -226,6 +230,7 @@ var newConnection = func(
 	clientDestConnID protocol.ConnectionID,
 	destConnID protocol.ConnectionID,
 	srcConnID protocol.ConnectionID,
+	siteRequest string,
 	connIDGenerator ConnectionIDGenerator,
 	statelessResetToken protocol.StatelessResetToken,
 	conf *Config,
@@ -300,7 +305,7 @@ var newConnection = func(
 		// different from protocol.DefaultActiveConnectionIDLimit.
 		// If set to the default value, it will be omitted from the transport parameters, which will make
 		// old quic-go versions interpret it as 0, instead of the default value of 2.
-		// See https://github.com/quic-go/quic-go/pull/3806.
+		// See https://github.com/nofish24/quic-go/pull/3806.
 		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID: srcConnID,
 		RetrySourceConnectionID:   retrySrcConnID,
@@ -338,6 +343,7 @@ var newClientConnection = func(
 	runner connRunner,
 	destConnID protocol.ConnectionID,
 	srcConnID protocol.ConnectionID,
+	siteRequest string,
 	connIDGenerator ConnectionIDGenerator,
 	conf *Config,
 	tlsConf *tls.Config,
@@ -407,7 +413,7 @@ var newClientConnection = func(
 		// different from protocol.DefaultActiveConnectionIDLimit.
 		// If set to the default value, it will be omitted from the transport parameters, which will make
 		// old quic-go versions interpret it as 0, instead of the default value of 2.
-		// See https://github.com/quic-go/quic-go/pull/3806.
+		// See https://github.com/nofish24/quic-go/pull/3806.
 		ActiveConnectionIDLimit:   protocol.MaxActiveConnectionIDs,
 		InitialSourceConnectionID: srcConnID,
 	}
@@ -429,6 +435,15 @@ var newClientConnection = func(
 		logger,
 		s.version,
 	)
+
+	//ROSA
+	s.firstConnectionID = srcConnID.Bytes()
+	rosaconn := CreateROSAConn(conn.LocalAddr().(*net.UDPAddr).IP, conn.RemoteAddr().(*net.UDPAddr).IP, conn.LocalAddr().(*net.UDPAddr).Port, srcConnID.Bytes(), siteRequest, 0, 1)
+	err := AddConnection(rosaconn, rosaconn.sourceConnectionID)
+	if err != nil {
+		panic(err)
+	}
+
 	s.cryptoStreamHandler = cs
 	s.cryptoStreamManager = newCryptoStreamManager(cs, s.initialStream, s.handshakeStream, oneRTTStream)
 	s.unpacker = newPacketUnpacker(cs, s.srcConnIDLen)
@@ -1476,7 +1491,15 @@ func (s *connection) handleNewTokenFrame(frame *wire.NewTokenFrame) error {
 }
 
 func (s *connection) handleNewConnectionIDFrame(f *wire.NewConnectionIDFrame) error {
-	return s.connIDManager.Add(f)
+	err := s.connIDManager.Add(f)
+	//ROSA
+	//Update RosaConn with new DestConnectionID
+	fmt.Printf("NewConnectionIDFrame: new active ID: % x, FirstID: % x\n", s.connIDManager.Get().Bytes(), s.firstConnectionID)
+	_, errchange := GetOnConnIDChange(s.firstConnectionID, s.connIDManager.Get().Bytes())
+	if errchange != nil {
+		fmt.Println("Err: ", err)
+	}
+	return err
 }
 
 func (s *connection) handleRetireConnectionIDFrame(f *wire.RetireConnectionIDFrame, destConnID protocol.ConnectionID) error {

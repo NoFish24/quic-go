@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/nofish24/quic-go/internal/protocol"
+	"github.com/nofish24/quic-go/internal/utils"
+	"github.com/nofish24/quic-go/quicvarint"
 )
 
 // ParseConnectionID parses the destination connection ID of a packet.
