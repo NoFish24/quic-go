@@ -95,7 +95,7 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 	// We don't know if this a IPv4-only, IPv6-only or a IPv4-and-IPv6 connection.
 	// Try enabling receiving of ECN and packet info for both IP versions.
 	// We expect at least one of those syscalls to succeed.
-	var errECNIPv4, errECNIPv6, errPIIPv4, errPIIPv6, errDestOpts, errDestOptsRecv error
+	var errECNIPv4, errECNIPv6, errPIIPv4, errPIIPv6, errDestOpts, errDestOptsRecv, errMTU, errMTUSize error
 	if err := rawConn.Control(func(fd uintptr) {
 		errECNIPv4 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_RECVTOS, 1)
 		errECNIPv6 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVTCLASS, 1)
@@ -108,6 +108,8 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 		if needsDestOpts {
 			errDestOpts = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_DSTOPTS, 1)
 			errDestOptsRecv = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVDSTOPTS, 1)
+			//errMTU = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_MTU_DISCOVER, unix.IPV6_PMTUDISC_DONT)
+			//errMTUSize = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_MTU, 1500)
 			fmt.Println("Set DestOpts!")
 		}
 
@@ -147,7 +149,15 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 			utils.DefaultLogger.Debugf("Activating reading of destination info for IPv6.")
 		case errDestOpts != nil && errDestOptsRecv != nil:
 			return nil, errors.New("activation of sending and reading of destination info for IPv6 failed")
+		case errMTU != nil && errMTUSize != nil:
+			fmt.Printf("Error setting up no MTUDisc: %d\n", errMTU)
+			fmt.Printf("Error setting MTU Size: %s\n", errMTUSize)
+		case errMTU != nil:
+			fmt.Printf("Error setting up no MTUDisc: %d\n", errMTU)
+		case errMTUSize != nil:
+			fmt.Printf("Error setting MTU Size: %s\n", errMTUSize)
 		}
+
 	}
 
 	// Allows callers to pass in a connection that already satisfies batchConn interface
@@ -171,8 +181,9 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 		messages:             msgs,
 		readPos:              batchSize,
 		cap: connCapabilities{
-			DF:  supportsDF,
-			GSO: isGSOSupported(rawConn),
+			DF: supportsDF,
+			//GSO: isGSOSupported(rawConn),
+			GSO: false,
 			ECN: !isECNDisabled(),
 		},
 	}
@@ -502,7 +513,7 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 		fmt.Println("Short Header Packet!")
 		id = nil
 		id = append(id, b[1:5]...)
-		fmt.Printf("ID for Short Header: % x\nExtracted ID: % x, Len: %d\n", id, b[1:5], len(b[1:5]))
+		//fmt.Printf("ID for Short Header: % x\nExtracted ID: % x, Len: %d\n", id, b[1:5], len(b[1:5]))
 		conn, err = GetConn(id)
 	}
 	if err != nil {
@@ -530,7 +541,6 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 	oob = CreateDestOptsOOB(oob, rosadata, hdrType) //Take ROSA data created in connection and append to OOB
 	//fmt.Printf("OOB complete:\n% x\n\n", oob)
 
-	//fmt.Printf("Text after ROSA:\n% x\n", b)
 	/*
 		var n int
 
@@ -541,9 +551,25 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, packetInfoOOB []byte, gso
 		}
 
 	*/
-	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
-	fmt.Printf("Sent Packet!\n")
-	//fmt.Printf("OOBN: %d\n", oobn)
+	n, oobn, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
+	if n == 0 {
+		fmt.Printf("\nSend failed\n%s\n", err)
+		fmt.Printf("Failed Message lengths: N: %d, OOB; %d\n", len(b), len(oob))
+	} else {
+		fmt.Printf("Sent Packet!\n")
+	}
+	fmt.Printf("N: %d, OOBN: %d\n", n, oobn)
+	rc, _ := c.OOBCapablePacketConn.SyscallConn()
+	err = rc.Control(func(fd uintptr) {
+		info, err := syscall.GetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER)
+		fmt.Printf("MTU: %d\n", info)
+		if err != nil {
+			fmt.Printf("Error when reading MTU: %s\n", err)
+		}
+	})
+	if err != nil {
+		return 0, err
+	}
 	return n, err
 }
 
