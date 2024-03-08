@@ -383,6 +383,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 
 					}
 				case SERVICE_AFFINITY:
+					// Might not be needed
 					/*
 						if len(body) != 0 {
 							var connID []byte
@@ -603,10 +604,6 @@ func (c *oobConn) createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 		hdrType = SERVICE_REQUEST
 	} else if !conn.requestSent && conn.responseReceived { //Server got Request, send Response
 		hdrType = SERVICE_RESPONSE
-		//Get responseconnectionid from coalesced packet
-		//srcconnidoffset := 6 + int(b[5])
-		//srconidlen := int(b[srcconnidoffset])
-		//responseconnectionid := b[srcconnidoffset+1 : srcconnidoffset+1+srconidlen]
 	} else if !conn.requestSent && !conn.responseReceived { //First Packet, Client sends Request
 		hdrType = SERVICE_REQUEST
 	}
@@ -624,10 +621,6 @@ func (c *oobConn) createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 			clientPortField := &ROSAOptionTLVField{
 				FieldType: PORT,
 				FieldData: make([]byte, 2),
-			}
-			egressIPField := &ROSAOptionTLVField{
-				FieldType: EGRESS_IP,
-				FieldData: []byte(conn.ingressIP),
 			}
 		*/
 
@@ -659,7 +652,7 @@ func (c *oobConn) createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
 		UpdateConn(conn.sourceConnectionID, REQUEST_SENT, true)
 
 		//_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*clientIPField, *clientPortField, *ingressIPField, *egressIPField, *sourceIDField, *requestField, *transmissionIDField, *idModeField})
-		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*ingressIPField, *sourceIDField, *requestField, *transmissionIDField, *idModeField})
+		_, rosadata = SerializeAllROSAOptionFields(&[]ROSAOptionTLVField{*sourceIDField, *requestField, *ingressIPField, *idModeField, *transmissionIDField})
 
 	case SERVICE_RESPONSE:
 
