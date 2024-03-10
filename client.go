@@ -60,7 +60,7 @@ func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, add
 			return nil, err
 		}
 	*/
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(clientaddress), Port: 0})
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, add
 // DialAddrEarly establishes a new 0-RTT QUIC connection to a server.
 // See DialAddr for more details.
 func DialAddrEarly(ctx context.Context, clientaddress string, edgeaddress string, addr string, tlsConf *tls.Config, conf *Config) (EarlyConnection, error) {
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(clientaddress), Port: 0})
 	if err != nil {
 		return nil, err
 	}
