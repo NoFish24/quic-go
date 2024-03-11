@@ -149,7 +149,7 @@ var _ = BeforeSuite(func() {
 	default:
 		Fail(fmt.Sprintf("unknown QUIC version: %s", versionParam))
 	}
-	fmt.Printf("Using QUIC version: %s\n", version)
+	//fmt.Printf("Using QUIC version: %s\n", version)
 	protocol.SupportedVersions = []quic.VersionNumber{version}
 })
 

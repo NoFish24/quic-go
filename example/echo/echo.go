@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"io"
 	"log"
 	"math/big"
@@ -54,7 +53,7 @@ func clientMain() error {
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"quic-echo-example"},
 	}
-	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, nil)
+	conn, err := quic.DialAddr(context.Background(), "", addr, "", tlsConf, nil)
 	if err != nil {
 		return err
 	}
@@ -64,7 +63,7 @@ func clientMain() error {
 		return err
 	}
 
-	fmt.Printf("Client: Sending '%s'\n", message)
+	//fmt.Printf("Client: Sending '%s'\n", message)
 	_, err = stream.Write([]byte(message))
 	if err != nil {
 		return err
@@ -75,7 +74,7 @@ func clientMain() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Client: Got '%s'\n", buf)
+	//fmt.Printf("Client: Got '%s'\n", buf)
 
 	return nil
 }
@@ -84,7 +83,7 @@ func clientMain() error {
 type loggingWriter struct{ io.Writer }
 
 func (w loggingWriter) Write(b []byte) (int, error) {
-	fmt.Printf("Server: Got '%s'\n", string(b))
+	//fmt.Printf("Server: Got '%s'\n", string(b))
 	return w.Writer.Write(b)
 }
 

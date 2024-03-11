@@ -20,6 +20,7 @@ const PACKETID uint8 = 0x9
 const CLIENT_CONNECTIONID uint8 = 0xa
 const INSTANCE_CONNECTIONID uint8 = 0xb
 const ID_MODE uint8 = 0xc
+const DEAD uint8 = 0xd
 const RESPONSE = 0xe
 const REQUEST_SENT uint8 = 0xf
 

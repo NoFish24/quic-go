@@ -19,9 +19,9 @@ var _ = Describe("frame sorter", func() {
 
 	checkGaps := func(expectedGaps []byteInterval) {
 		if s.gaps.Len() != len(expectedGaps) {
-			fmt.Println("Gaps:")
+			//fmt.Println("Gaps:")
 			for gap := s.gaps.Front(); gap != nil; gap = gap.Next() {
-				fmt.Printf("\t%d - %d\n", gap.Value.Start, gap.Value.End)
+				//fmt.Printf("\t%d - %d\n", gap.Value.Start, gap.Value.End)
 			}
 			ExpectWithOffset(1, s.gaps.Len()).To(Equal(len(expectedGaps)))
 		}

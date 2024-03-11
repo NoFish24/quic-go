@@ -49,6 +49,7 @@ var generateConnectionIDForInitial = protocol.GenerateConnectionIDForInitial
 func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, addr string, tlsConf *tls.Config, conf *Config) (Connection, error) {
 
 	ctx = context.WithValue(ctx, "RequestSite", addr)
+	//fmt.Printf("\nClientAddr: %s\nEdgeAddr: %s\nAddr: %s\n\n", clientaddress, edgeaddress, addr)
 
 	edgeAddr, err := net.ResolveUDPAddr("udp", edgeaddress)
 	if err != nil {
@@ -60,7 +61,7 @@ func DialAddr(ctx context.Context, clientaddress string, edgeaddress string, add
 			return nil, err
 		}
 	*/
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(clientaddress), Port: 0})
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +147,7 @@ func setupTransport(c net.PacketConn, tlsConf *tls.Config, createdPacketConn boo
 	return &Transport{
 		Conn:        c,
 		createdConn: createdPacketConn,
-		isSingleUse: true,
+		isSingleUse: false, //ROSA
 	}, nil
 }
 

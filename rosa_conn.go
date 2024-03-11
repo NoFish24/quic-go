@@ -21,6 +21,7 @@ type ROSAConn struct {
 	requestSent                                                       bool
 	currentID                                                         uint32
 	IDMode                                                            int
+	dead                                                              bool //Mark changed connections, so they might be overwritten
 }
 
 var rosaConnections = struct {
@@ -48,7 +49,7 @@ func AddConnection(conn ROSAConn, keyid []byte) error {
 	//Check if connection already exists
 
 	rosaConnections.RLock()
-	if _, check := rosaConnections.conns[key]; check {
+	if c, check := rosaConnections.conns[key]; check || c.dead {
 		rosaConnections.RUnlock()
 		return nil
 	}
@@ -57,7 +58,7 @@ func AddConnection(conn ROSAConn, keyid []byte) error {
 	rosaConnections.Lock()
 	rosaConnections.conns[key] = conn
 	rosaConnections.Unlock()
-	fmt.Printf("Connection added:\nKey: % x\nConnID: % x\nDestConnID: % x\nSourceIP: %s\nSourcePort: %d\nDestIP: %s\nDestPort: %d\nIngress: %s\nEgress: %s\n", conn.keyid, conn.sourceConnectionID, conn.destConnectionID, conn.sourceIP.String(), conn.sourcePort, conn.destIP.String(), conn.destPort, conn.ingressIP, conn.egressIP)
+	//fmt.Printf("Connection added:\nKey: % x\nConnID: % x\nDestConnID: % x\nSourceIP: %s\nSourcePort: %d\nDestIP: %s\nDestPort: %d\nIngress: %s\nEgress: %s\n", conn.keyid, conn.sourceConnectionID, conn.destConnectionID, conn.sourceIP.String(), conn.sourcePort, conn.destIP.String(), conn.destPort, conn.ingressIP, conn.egressIP)
 	return nil
 }
 
@@ -96,6 +97,8 @@ func UpdateConn(connectionID []byte, update uint8, value any) error {
 			entry.requestSent = value.(bool)
 		case RESPONSE:
 			entry.responseReceived = value.(bool)
+		case DEAD:
+			entry.dead = value.(bool)
 		default:
 			return fmt.Errorf("no such fiels in ROSAConn")
 		}
@@ -114,7 +117,7 @@ func GetConn(connectionID []byte) (ROSAConn, error) {
 		return ROSAConn{}, fmt.Errorf("no Connection for ConnectionID % x", connectionID)
 	}
 	rosaConnections.RUnlock()
-	fmt.Printf("Conn: % x, % x\n", conn.keyid, conn.sourceConnectionID)
+	//fmt.Printf("Conn: % x, % x\n", conn.keyid, conn.sourceConnectionID)
 	return conn, nil
 }
 
@@ -146,13 +149,12 @@ func GetOnConnIDChange(srcconnid, newdestconnid []byte) (ROSAConn, error) {
 	if target.firstSrcConnectionID == nil {
 		return ROSAConn{}, fmt.Errorf("No Conn to Change! GetConnIDChange\n")
 	}
-
 	rosaConnections.RUnlock()
 	oldid := target.keyid
 	target.destConnectionID = newdestconnid
 	target.keyid = newdestconnid
 	err := AddConnection(target, newdestconnid)
-	err = RemoveConnection(oldid)
+	err = UpdateConn(oldid, DEAD, true)
 	return target, err
 }
 

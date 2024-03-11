@@ -2,8 +2,6 @@ package transportparameters
 
 import (
 	"bytes"
-	"fmt"
-
 	"github.com/nofish24/quic-go/fuzzing/internal/helper"
 	"github.com/nofish24/quic-go/internal/protocol"
 	"github.com/nofish24/quic-go/internal/wire"
@@ -40,7 +38,7 @@ func fuzzTransportParameters(data []byte, isServer bool) int {
 
 	tp2 := &wire.TransportParameters{}
 	if err := tp2.Unmarshal(tp.Marshal(perspective), perspective); err != nil {
-		fmt.Printf("%#v\n", tp)
+		//fmt.Printf("%#v\n", tp)
 		panic(err)
 	}
 	return 1

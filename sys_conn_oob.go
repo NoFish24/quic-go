@@ -5,7 +5,6 @@ package quic
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/nofish24/quic-go/internal/protocol"
 	"github.com/nofish24/quic-go/internal/utils"
@@ -99,9 +99,10 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 		if needsDestOpts {
 			errDestOpts = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_DSTOPTS, 1)
 			errDestOptsRecv = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_RECVDSTOPTS, 1)
-			//errMTU = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_MTU_DISCOVER, unix.IPV6_PMTUDISC_DONT)
-			//errMTUSize = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_MTU, 1500)
-			fmt.Println("Set DestOpts!")
+			errMTU = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_MTU_DISCOVER, unix.IPV6_PMTUDISC_OMIT)
+			errMTUSize = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_MTU, 1500)
+			errMTUSize = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_MTU, 1500)
+			//fmt.Println("Set DestOpts!")
 		}
 
 	}); err != nil {
@@ -141,12 +142,12 @@ func newConn(c OOBCapablePacketConn, supportsDF bool) (*oobConn, error) {
 		case errDestOpts != nil && errDestOptsRecv != nil:
 			return nil, errors.New("activation of sending and reading of destination info for IPv6 failed")
 		case errMTU != nil && errMTUSize != nil:
-			fmt.Printf("Error setting up no MTUDisc: %d\n", errMTU)
-			fmt.Printf("Error setting MTU Size: %s\n", errMTUSize)
+			//fmt.Printf("Error setting up no MTUDisc: %d\n", errMTU)
+			//fmt.Printf("Error setting MTU Size: %s\n", errMTUSize)
 		case errMTU != nil:
-			fmt.Printf("Error setting up no MTUDisc: %d\n", errMTU)
+			//fmt.Printf("Error setting up no MTUDisc: %d\n", errMTU)
 		case errMTUSize != nil:
-			fmt.Printf("Error setting MTU Size: %s\n", errMTUSize)
+			//fmt.Printf("Error setting MTU Size: %s\n", errMTUSize)
 		}
 	}
 
@@ -215,7 +216,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 		buffer:     buffer,
 	}
 
-	fmt.Printf("Received Packet from %s\n", p.remoteAddr.String())
+	//fmt.Printf("Received Packet from %s\n", p.remoteAddr.String())
 
 	//fmt.Printf("Data:\n% x\n", data)
 
@@ -261,7 +262,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 				}
 			case unix.IPV6_DSTOPTS: //ROSA Header
 				//Parse ROSA Header
-				fmt.Printf("Received ROSAHdr: %d\n", uint8(body[2]))
+				//fmt.Printf("Received ROSAHdr: %d\n", uint8(body[2]))
 				switch uint8(body[2]) {
 				case SERVICE_REQUEST: //Get request from a Client, create Connection State
 					if len(body) != 0 {
@@ -285,7 +286,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 							case PORT:
 								destport = int(binary.BigEndian.Uint16(rd.FieldData))
 							case CLIENT_CONNECTIONID:
-								clid = rd.FieldData
+								clid = append(make([]byte, 0), rd.FieldData...)
 							case INGRESS_IP:
 								ingress = rd.FieldData
 							/*
@@ -315,9 +316,9 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 							conn.responseReceived = true //To signal that next packet should contain response -> responsiveReceived & !requestSent
 
 							err := AddConnection(conn, conn.sourceConnectionID)
-							fmt.Printf("Add connection with key: % x\n", conn.sourceConnectionID)
+							//fmt.Printf("Add connection with key: % x\n", conn.sourceConnectionID)
 							if err != nil {
-								fmt.Println("Error adding connection")
+								//fmt.Println("Error adding connection")
 								return p, nil
 							}
 						}
@@ -371,12 +372,12 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 
 							err = AddConnection(conn, conn.destConnectionID)
 							if err != nil {
-								fmt.Printf("Problem with Request Connection Handling")
+								//fmt.Printf("Problem with Request Connection Handling")
 								return receivedPacket{}, err
 							}
 							err = RemoveConnection(connID)
 							if err != nil {
-								fmt.Printf("Problem with Request Connection Handling")
+								//fmt.Printf("Problem with Request Connection Handling")
 								return receivedPacket{}, err
 							}
 						}
@@ -405,7 +406,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 					*/
 
 				default:
-					fmt.Println("Whyyy! DSTOpts received, but no ROSA :(")
+					//fmt.Println("Whyyy! DSTOpts received, but no ROSA :(")
 				}
 
 			}
@@ -433,8 +434,8 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 	//Overcomplicated
 	//TODO: Simplify id identification
 	if b[0]>>7 == 1 { //Packet is in Long Header Format
-		fmt.Println("Long Header Packet!")
-		fmt.Printf("First Bytes: % x\n", b[:30])
+		//fmt.Println("Long Header Packet!")
+		//fmt.Printf("First Bytes: % x\n", b[:30])
 		if b[6+b[5]] != 0 {
 			//fmt.Printf("Length of DstConnID: %d\n", b[5])
 			id = append(id, b[6+b[5]+1:6+b[5]+b[6+b[5]]+1]...)
@@ -473,7 +474,7 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 			}
 		}
 	} else { //Packet is NOT in Long Header Format
-		fmt.Println("Short Header Packet!")
+		//fmt.Println("Short Header Packet!")
 		id = nil
 		id = append(id, b[1:5]...)
 		//fmt.Printf("ID for Short Header: % x\nExtracted ID: % x, Len: %d\n", id, b[1:5], len(b[1:5]))
@@ -490,9 +491,9 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 			}
 		*/
 		if err != nil {
-			fmt.Println("No conn found.")
-			fmt.Println(err.Error())
-			fmt.Printf("Body of no conn:\n% x\n", b)
+			//fmt.Println("No conn found.")
+			//fmt.Println(err.Error())
+			//fmt.Printf("Body of no conn:\n% x\n", b)
 			return 0, err
 		}
 	}
@@ -506,20 +507,20 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 
 	//fmt.Printf("Text after ROSA:\n% x\n", b)
 
-	n, oobn, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
+	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
 	if n == 0 {
-		fmt.Printf("\nSend failed\n%s\n", err)
-		fmt.Printf("Failed Message lengths: N: %d, OOB; %d\n", len(b), len(oob))
+		//fmt.Printf("\nSend failed\n%s\n", err)
+		//fmt.Printf("Failed Message lengths: N: %d, OOB; %d\n", len(b), len(oob))
 	} else {
-		fmt.Printf("Sent Packet!\n")
+		//fmt.Printf("Sent Packet!\n")
 	}
-	fmt.Printf("N: %d, OOBN: %d\n", n, oobn)
+	//fmt.Printf("N: %d, OOBN: %d\n", n, oobn)
 	rc, _ := c.OOBCapablePacketConn.SyscallConn()
 	err = rc.Control(func(fd uintptr) {
-		info, err := syscall.GetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER)
-		fmt.Printf("MTU: %d\n", info)
+		_, err := syscall.GetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER)
+		//fmt.Printf("MTU: %d\n", sockinfo)
 		if err != nil {
-			fmt.Printf("Error when reading MTU: %s\n", err)
+			//fmt.Printf("Error when reading MTU: %s\n", err)
 		}
 	})
 	if err != nil {

@@ -25,6 +25,8 @@ type connIDManager struct {
 	activeConnectionID        protocol.ConnectionID
 	activeStatelessResetToken *protocol.StatelessResetToken
 
+	FirstconnectionID []byte
+
 	// We change the connection ID after sending on average
 	// protocol.PacketsPerConnectionID packets. The actual value is randomized
 	// hide the packet loss rate from on-path observers.
@@ -157,6 +159,14 @@ func (h *connIDManager) updateConnectionID() {
 	h.packetsSinceLastChange = 0
 	h.packetsPerConnectionID = protocol.PacketsPerConnectionID/2 + uint32(h.rand.Int31n(protocol.PacketsPerConnectionID))
 	h.addStatelessResetToken(*h.activeStatelessResetToken)
+
+	//ROSA
+	//fmt.Printf("Change ConnectionID within ConnIDManager\n")
+	_, errchange := GetOnConnIDChange(h.FirstconnectionID, front.ConnectionID.Bytes())
+	if errchange != nil {
+		//fmt.Println("Err: ", errchange)
+	}
+
 }
 
 func (h *connIDManager) Close() {

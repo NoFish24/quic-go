@@ -328,7 +328,7 @@ func runHandshake(runConfig [confLen]byte, messageConfig uint8, clientConf *tls.
 					encLevel = protocol.EncryptionHandshake
 				}
 				if msg[0] == messageToReplace {
-					fmt.Printf("replacing %s message to the server with %s at %s\n", messageType(msg[0]), messageType(data[0]), messageToReplaceEncLevel)
+					//fmt.Printf("replacing %s message to the server with %s at %s\n", messageType(msg[0]), messageType(data[0]), messageToReplaceEncLevel)
 					msg = data
 					encLevel = messageToReplaceEncLevel
 				}
@@ -359,7 +359,7 @@ func runHandshake(runConfig [confLen]byte, messageConfig uint8, clientConf *tls.
 				}
 				msg := ev.Data
 				if msg[0] == messageToReplace {
-					fmt.Printf("replacing %s message to the client with %s at %s\n", messageType(msg[0]), messageType(data[0]), messageToReplaceEncLevel)
+					//fmt.Printf("replacing %s message to the client with %s at %s\n", messageType(msg[0]), messageType(data[0]), messageToReplaceEncLevel)
 					msg = data
 					encLevel = messageToReplaceEncLevel
 				}
@@ -410,11 +410,11 @@ func runHandshake(runConfig [confLen]byte, messageConfig uint8, clientConf *tls.
 	}
 
 	if sendPostHandshakeMessageToClient {
-		fmt.Println("sending post handshake message to the client at", messageToReplaceEncLevel)
+		//fmt.Println("sending post handshake message to the client at", messageToReplaceEncLevel)
 		client.HandleMessage(data, messageToReplaceEncLevel)
 	}
 	if sendPostHandshakeMessageToServer {
-		fmt.Println("sending post handshake message to the server at", messageToReplaceEncLevel)
+		//fmt.Println("sending post handshake message to the server at", messageToReplaceEncLevel)
 		server.HandleMessage(data, messageToReplaceEncLevel)
 	}
 
