@@ -370,7 +370,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 							}
 							//fmt.Printf("Creating Connection with ConnID: % x, inconn: % x\n", conn.destConnectionID, inconnID)
 
-							err = AddConnection(conn, conn.destConnectionID)
+							err = AddConnection(*conn, conn.destConnectionID)
 							if err != nil {
 								//fmt.Printf("Problem with Request Connection Handling")
 								return receivedPacket{}, err
@@ -422,7 +422,7 @@ func (c *oobConn) ReadPacket() (receivedPacket, error) {
 func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) {
 
 	//ROSA
-	var conn ROSAConn
+	var conn *ROSAConn
 	var err error
 	var hdrType uint8
 	var rosadata []byte
@@ -508,24 +508,28 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 	//fmt.Printf("Text after ROSA:\n% x\n", b)
 
 	n, _, err := c.OOBCapablePacketConn.WriteMsgUDP(b, oob, addr.(*net.UDPAddr))
-	if n == 0 {
-		//fmt.Printf("\nSend failed\n%s\n", err)
-		//fmt.Printf("Failed Message lengths: N: %d, OOB; %d\n", len(b), len(oob))
-	} else {
-		//fmt.Printf("Sent Packet!\n")
-	}
-	//fmt.Printf("N: %d, OOBN: %d\n", n, oobn)
-	rc, _ := c.OOBCapablePacketConn.SyscallConn()
-	err = rc.Control(func(fd uintptr) {
-		_, err := syscall.GetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER)
-		//fmt.Printf("MTU: %d\n", sockinfo)
-		if err != nil {
-			//fmt.Printf("Error when reading MTU: %s\n", err)
+	/*
+		if n == 0 {
+			//fmt.Printf("\nSend failed\n%s\n", err)
+			//fmt.Printf("Failed Message lengths: N: %d, OOB; %d\n", len(b), len(oob))
+		} else {
+			//fmt.Printf("Sent Packet!\n")
 		}
-	})
-	if err != nil {
-		return 0, err
-	}
+		//fmt.Printf("N: %d, OOBN: %d\n", n, oobn)
+
+			rc, _ := c.OOBCapablePacketConn.SyscallConn()
+			err = rc.Control(func(fd uintptr) {
+				_, err := syscall.GetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER)
+				//fmt.Printf("MTU: %d\n", sockinfo)
+				if err != nil {
+					//fmt.Printf("Error when reading MTU: %s\n", err)
+				}
+			})
+				if err != nil {
+					return 0, err
+				}
+	*/
+
 	return n, err
 }
 
@@ -593,7 +597,7 @@ func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
 
 }
 
-func (c *oobConn) createROSAOOB(conn ROSAConn, srcid []byte) (uint8, []byte) {
+func (c *oobConn) createROSAOOB(conn *ROSAConn, srcid []byte) (uint8, []byte) {
 
 	var hdrType uint8
 	var rosadata []byte
