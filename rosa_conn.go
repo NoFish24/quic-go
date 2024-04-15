@@ -74,7 +74,6 @@ func RemoveConnection(connectionID []byte) error {
 		delete(rosaConnections.conns, key)
 		rosaConnections.Unlock()
 	}()
-	//fmt.Println("Removed connection hahaha")
 	return nil
 }
 

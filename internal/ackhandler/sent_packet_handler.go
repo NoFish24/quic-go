@@ -14,11 +14,12 @@ import (
 )
 
 const (
+	// ROSA Moon values
 	// Maximum reordering in time space before time based loss detection considers a packet lost.
 	// Specified as an RTT multiplier.
-	timeThreshold = 9.0 / 8
+	timeThreshold = 6.0 / 4 //9.0 / 8
 	// Maximum reordering in packets before packet threshold loss detection considers a packet lost.
-	packetThreshold = 3
+	packetThreshold = 300 // 3
 	// Before validating the client's address, the server won't send more than 3x bytes than it received.
 	amplificationFactor = 3
 	// We use Retry packets to derive an RTT estimate. Make sure we don't set the RTT to a super low value yet.

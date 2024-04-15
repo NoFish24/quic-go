@@ -431,35 +431,19 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 	var id []byte
 
 	//Obtain correct ROSA connection state
-	//Overcomplicated
-	//TODO: Simplify id identification
+	//less complicated
 	if b[0]>>7 == 1 { //Packet is in Long Header Format
 		//fmt.Println("Long Header Packet!")
 		//fmt.Printf("First Bytes: % x\n", b[:30])
+		//fmt.Printf("Length of DstConnID: %d\n", b[5])
 		if b[6+b[5]] != 0 {
-			//fmt.Printf("Length of DstConnID: %d\n", b[5])
 			id = append(id, b[6+b[5]+1:6+b[5]+b[6+b[5]]+1]...)
 			//fmt.Printf("id: % x\n", id)
 			conn, err = GetConn(id) //Source ConnID for Request
 			srcid = id
-			if err != nil {
-				if b[5] != 0 {
-					err = nil
-					id = nil
-					id = append(id, b[6:5+b[5]+1]...)
-					conn, err = GetConn(id) //DestConnID for Affinity
-					if err != nil {
-						err = nil
-						conn, err = GetConn([]byte{0x0, 0x0, 0x0, 0x0}) //Zero-Length Destination ConnID
-					}
-				} else {
-					err = nil
-					conn, err = GetConn([]byte{0x0, 0x0, 0x0, 0x0}) //Zero-Length Destination ConnID
-					srcid = []byte{0x0, 0x0, 0x0, 0x0}
-				}
-			}
-		} else {
+		} else if err != nil {
 			if b[5] != 0 {
+				err = nil
 				id = nil
 				id = append(id, b[6:5+b[5]+1]...)
 				conn, err = GetConn(id) //DestConnID for Affinity
@@ -469,6 +453,7 @@ func (c *oobConn) WritePacket(b []byte, addr net.Addr, oob []byte) (int, error) 
 					srcid = []byte{0x0, 0x0, 0x0, 0x0}
 				}
 			} else {
+				err = nil
 				conn, err = GetConn([]byte{0x0, 0x0, 0x0, 0x0}) //Zero-Length Destination ConnID
 				srcid = []byte{0x0, 0x0, 0x0, 0x0}
 			}
@@ -574,8 +559,11 @@ func (info *packetInfo) OOB() []byte {
 }
 
 func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
+	// IPv6 Destination Options Header
 	dstoptdata = append([]byte{optType, uint8(len(dstoptdata))}, dstoptdata...)
+	// IPv6 Option Type Header
 	dstoptdata = append([]byte{optType, uint8((len(dstoptdata) + 2) / 8)}, dstoptdata...)
+	// Pad our destination options data to a multiple of 8, raises error if not done
 	pad := len(dstoptdata) % 8
 	if pad != 0 {
 		dstoptdata = append(dstoptdata, make([]byte, 8-pad)...)
@@ -584,6 +572,8 @@ func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
 	startLen := len(oob)
 	dataLen := len(dstoptdata)
 	oob = append(oob, make([]byte, unix.CmsgSpace(dataLen))...)
+	// Create the command message header with the correct level and type
+	// Code from here forward mainly taken from quic-go implementations
 	h := (*unix.Cmsghdr)(unsafe.Pointer(&oob[startLen]))
 	h.Level = syscall.IPPROTO_IPV6
 	h.Type = unix.IPV6_DSTOPTS
@@ -592,9 +582,7 @@ func CreateDestOptsOOB(oob []byte, dstoptdata []byte, optType uint8) []byte {
 	// UnixRights uses the private `data` method, but I *think* this achieves the same goal.
 	offset := startLen + unix.CmsgSpace(0)
 	copy(oob[offset:], dstoptdata)
-
 	return oob
-
 }
 
 func (c *oobConn) createROSAOOB(conn *ROSAConn, srcid []byte) (uint8, []byte) {
